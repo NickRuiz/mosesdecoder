@@ -117,6 +117,9 @@ my $___HISTORIC_INTERPOLATION = 0; # interpolate optimize weights with previous 
 # TODO: Should we also add these values to options of this script?
 my $megam_default_options = "-fvals -maxi 30 -nobias binary";
 
+# Flags related to Batch MIRA (Cherry & Foster, 2012)
+my $___BATCH_MIRA = 0; # flg to enable batch MIRA
+
 my $__THREADS = 0;
 
 # Parameter for effective reference length when computing BLEU score
@@ -144,6 +147,12 @@ my $mertdir = undef; # path to new mert directory
 my $mertargs = undef; # args to pass through to mert & extractor
 my $mertmertargs = undef; # args to pass through to mert only
 my $extractorargs = undef; # args to pass through to extractor only
+
+# Args to pass through to batch mira only.  This flags is useful to
+# change MIRA's hyperparameters such as regularization parameter C,
+# BLEU decay factor, and the number of iterations of MIRA.
+my $batch_mira_args = undef;
+
 my $filtercmd = undef; # path to filter-model-given-input.pl
 my $filterfile = undef;
 my $qsubwrapper = undef;
@@ -206,6 +215,8 @@ GetOptions(
   "pairwise-ranked" => \$___PAIRWISE_RANKED_OPTIMIZER,
   "pro-starting-point" => \$___PRO_STARTING_POINT,
   "historic-interpolation=f" => \$___HISTORIC_INTERPOLATION,
+  "batch-mira" => \$___BATCH_MIRA,
+  "batch-mira-args=s" => \$batch_mira_args,
   "threads=i" => \$__THREADS
 ) or exit(1);
 
@@ -289,6 +300,10 @@ Options:
                                         (also works with regular optimizer, default: 0)
   --pairwise-ranked         ... Use PRO for optimisation (Hopkins and May, emnlp 2011)
   --pro-starting-point      ... Use PRO to get a starting point for MERT
+  --batch-mira              ... Use Batch MIRA for optimisation (Cherry and Foster, NAACL 2012)
+  --batch-mira-args=STRING  ... args to pass through to batch MIRA. This flag is useful to
+                                change MIRA's hyperparameters such as regularization parameter C,
+                                BLEU decay factor, and the number of iterations of MIRA.
   --threads=NUMBER          ... Use multi-threaded mert (must be compiled in).
   --historic-interpolation  ... Interpolate optimized weights with prior iterations' weight
                                 (parameter sets factor [0;1] given to current weights)
@@ -324,10 +339,12 @@ if (!defined $mertdir) {
 my $mert_extract_cmd = File::Spec->catfile($mertdir, "extractor");
 my $mert_mert_cmd    = File::Spec->catfile($mertdir, "mert");
 my $mert_pro_cmd     = File::Spec->catfile($mertdir, "pro");
+my $mert_mira_cmd    = File::Spec->catfile($mertdir, "kbmira");
 
 die "Not executable: $mert_extract_cmd" if ! -x $mert_extract_cmd;
 die "Not executable: $mert_mert_cmd"    if ! -x $mert_mert_cmd;
 die "Not executable: $mert_pro_cmd"     if ! -x $mert_pro_cmd;
+die "Not executable: $mert_mira_cmd"    if ! -x $mert_mira_cmd;
 
 my $pro_optimizer = File::Spec->catfile($mertdir, "megam_i686.opt");  # or set to your installation
 
@@ -727,6 +744,15 @@ while (1) {
     $scfiles = "$score_file";
   }
 
+  my $mira_settings = "";
+  if ($___BATCH_MIRA && $batch_mira_args) {
+    $mira_settings .= "$batch_mira_args ";
+  }
+
+  $mira_settings .= " --dense-init run$run.$weights_in_file";
+  if (-e "run$run.sparse-weights") {
+    $mira_settings .= " --sparse-init run$run.sparse-weights";
+  }
   my $file_settings = " --ffile $ffiles --scfile $scfiles";
   my $pro_file_settings = "--ffile " . join(" --ffile ", split(/,/, $ffiles)) .
                           " --scfile " .  join(" --scfile ", split(/,/, $scfiles));
@@ -759,6 +785,10 @@ while (1) {
     # ... and run mert
     $cmd =~ s/(--ifile \S+)/$1,run$run.init.pro/;
     &submit_or_exec($cmd . $mert_settings, $mert_outfile, $mert_logfile);
+  } elsif ($___BATCH_MIRA) { # batch MIRA optimization
+    safesystem("echo 'not used' > $weights_out_file") or die;
+    $cmd = "$mert_mira_cmd $mira_settings $seed_settings $pro_file_settings -o $mert_outfile";
+    &submit_or_exec($cmd, "run$run.mira.out", $mert_logfile);
   } else {  # just mert
     &submit_or_exec($cmd . $mert_settings, $mert_outfile, $mert_logfile);
   }
@@ -906,10 +936,12 @@ chdir($cwd);
 sub get_weights_from_mert {
   my ($outfile, $logfile, $weight_count, $sparse_weights) = @_;
   my ($bestpoint, $devbleu);
-  if ($___PAIRWISE_RANKED_OPTIMIZER || ($___PRO_STARTING_POINT && $logfile =~ /pro/)) {
+  if ($___PAIRWISE_RANKED_OPTIMIZER || ($___PRO_STARTING_POINT && $logfile =~ /pro/)
+          || $___BATCH_MIRA) {
     open my $fh, '<', $outfile or die "Can't open $outfile: $!";
-    my (@WEIGHT, $sum);
+    my @WEIGHT;
     for (my $i = 0; $i < $weight_count; $i++) { push @WEIGHT, 0; }
+    my $sum = 0.0;
     while (<$fh>) {
       if (/^F(\d+) ([\-\.\de]+)/) {     # regular features
         $WEIGHT[$1] = $2;
@@ -918,11 +950,23 @@ sub get_weights_from_mert {
         $$sparse_weights{$1} = $2;
       }
     }
+    close $fh;
+    die "It seems feature values are invalid or unable to read $outfile." if $sum < 1e-09;
+
     $devbleu = "unknown";
     foreach (@WEIGHT) { $_ /= $sum; }
     foreach (keys %{$sparse_weights}) { $$sparse_weights{$_} /= $sum; }
     $bestpoint = join(" ", @WEIGHT);
-    close $fh;
+
+    if($___BATCH_MIRA) {
+      open my $fh2, '<', $logfile or die "Can't open $logfile: $!";
+      while(<$fh2>) {
+        if(/Best BLEU = ([\-\d\.]+)/) {
+          $devbleu = $1;
+        }
+      }
+      close $fh2;
+    }
   } else {
     open my $fh, '<', $logfile or die "Can't open $logfile: $!";
     while (<$fh>) {
@@ -1089,7 +1133,7 @@ sub get_order_of_scores_from_nbestlist {
   # return the score labels in order
   my $fname_or_source = shift;
   # print STDERR "Peeking at the beginning of nbestlist to get order of scores: $fname_or_source\n";
-  open my $fh, '<', $fname_or_source or die "Failed to get order of scores from nbestlist '$fname_or_source': $!";
+  open my $fh, $fname_or_source or die "Failed to get order of scores from nbestlist '$fname_or_source': $!";
   my $line = <$fh>;
   close $fh;
   die "Line empty in nbestlist '$fname_or_source'" if !defined $line;
@@ -1169,7 +1213,7 @@ sub create_config {
   }
 
   if (defined($sparse_weights_file)) {
-    push @{$P{"weights-file"}}, File::Spec->catfile($___WORKING_DIR, $sparse_weights_file);
+    push @{$P{"weight-file"}}, File::Spec->catfile($___WORKING_DIR, $sparse_weights_file);
   }
 
   # create new moses.ini decoder config file by cloning and overriding the original one
