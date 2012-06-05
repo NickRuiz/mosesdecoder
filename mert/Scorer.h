@@ -1,5 +1,5 @@
-#ifndef __SCORER_H__
-#define __SCORER_H__
+#ifndef MERT_SCORER_H_
+#define MERT_SCORER_H_
 
 #include <iostream>
 #include <sstream>
@@ -9,9 +9,14 @@
 #include "Types.h"
 #include "ScoreData.h"
 
-using namespace std;
-
+class PreProcessFilter;
 class ScoreStats;
+
+namespace mert {
+
+class Vocabulary;
+
+} // namespace mert
 
 /**
  * Superclass of all scorers and dummy implementation.
@@ -22,21 +27,18 @@ class ScoreStats;
 class Scorer
 {
  public:
-  Scorer(const string& name, const string& config);
+  Scorer(const std::string& name, const std::string& config);
   virtual ~Scorer();
 
   /**
    * Return the number of statistics needed for the computation of the score.
    */
-  virtual size_t NumberOfScores() const {
-    cerr << "Scorer: 0" << endl;
-    return 0;
-  }
+  virtual std::size_t NumberOfScores() const = 0;
 
   /**
    * Set the reference files. This must be called before prepareStats().
    */
-  virtual void setReferenceFiles(const vector<string>& referenceFiles) {
+  virtual void setReferenceFiles(const std::vector<std::string>& referenceFiles) {
     // do nothing
   }
 
@@ -44,12 +46,12 @@ class Scorer
    * Process the given guessed text, corresponding to the given reference sindex
    * and add the appropriate statistics to the entry.
    */
-  virtual void prepareStats(size_t sindex, const string& text, ScoreStats& entry) {
+  virtual void prepareStats(std::size_t sindex, const std::string& text, ScoreStats& entry) {
     // do nothing.
   }
 
-  virtual void prepareStats(const string& sindex, const string& text, ScoreStats& entry) {
-    this->prepareStats(static_cast<size_t>(atoi(sindex.c_str())), text, entry);
+  virtual void prepareStats(const std::string& sindex, const std::string& text, ScoreStats& entry) {
+    this->prepareStats(static_cast<std::size_t>(atoi(sindex.c_str())), text, entry);
   }
 
   /**
@@ -57,16 +59,19 @@ class Scorer
    * applying each in turn, and calculating a new score each time.
    */
   virtual void score(const candidates_t& candidates, const diffs_t& diffs,
-                     statscores_t& scores) const {
+                     statscores_t& scores) const = 0;
+  /*
+  {
     //dummy impl
     if (!m_score_data) {
       throw runtime_error("score data not loaded");
     }
     scores.push_back(0);
-    for (size_t i = 0; i < diffs.size(); ++i) {
+    for (std::size_t i = 0; i < diffs.size(); ++i) {
       scores.push_back(0);
     }
   }
+  */
 
   /**
    * Calculate the score of the sentences corresponding to the list of candidate
@@ -79,11 +84,11 @@ class Scorer
     return scores[0];
   }
 
-  const string& getName() const {
+  const std::string& getName() const {
     return m_name;
   }
 
-  size_t getReferenceSize() const {
+  std::size_t getReferenceSize() const {
     if (m_score_data) {
       return m_score_data->size();
     }
@@ -93,27 +98,40 @@ class Scorer
   /**
    * Set the score data, prior to scoring.
    */
-  void setScoreData(ScoreData* data) {
+  virtual void setScoreData(ScoreData* data) {
     m_score_data = data;
   }
 
+  /**
+   * Set the factors, which should be used for this metric
+   */
+  virtual void setFactors(const std::string& factors);
+
+  mert::Vocabulary* GetVocab() const { return m_vocab; }
+
+  /**
+   * Set unix filter, which will be used to preprocess the sentences
+   */
+  virtual void setFilter(const std::string& filterCommand);
+
  private:
-  class Encoder {
-   public:
-    Encoder();
-    virtual ~Encoder();
-    int Encode(const std::string& token);
-    void Clear() { m_vocab.clear(); }
+  void InitConfig(const std::string& config);
 
-   private:
-    std::map<std::string, int> m_vocab;
-  };
+  /**
+   * Take the factored sentence and return the desired factors
+   */
+  std::string applyFactors(const std::string& sentece) const;
 
-  void InitConfig(const string& config);
+  /**
+   * Preprocess the sentence with the filter (if given)
+   */
+  std::string applyFilter(const std::string& sentence) const;
 
-  string m_name;
-  Encoder* m_encoder;
-  map<string, string> m_config;
+  std::string m_name;
+  mert::Vocabulary* m_vocab;
+  std::map<std::string, std::string> m_config;
+  std::vector<int> m_factors;
+  PreProcessFilter* m_filter;
 
  protected:
   ScoreData* m_score_data;
@@ -122,8 +140,8 @@ class Scorer
   /**
    * Get value of config variable. If not provided, return default.
    */
-  string getConfig(const string& key, const string& def="") const {
-    map<string,string>::const_iterator i = m_config.find(key);
+  std::string getConfig(const std::string& key, const std::string& def="") const {
+    std::map<std::string,std::string>::const_iterator i = m_config.find(key);
     if (i == m_config.end()) {
       return def;
     } else {
@@ -133,13 +151,19 @@ class Scorer
 
   /**
    * Tokenise line and encode.
-   * Note: We assume that all tokens are separated by single spaces.
+   * Note: We assume that all tokens are separated by whitespaces.
    */
-  void TokenizeAndEncode(const string& line, vector<int>& encoded);
+  void TokenizeAndEncode(const std::string& line, std::vector<int>& encoded);
 
-  void ClearEncoder() { m_encoder->Clear(); }
+  /**
+   * Every inherited scorer should call this function for each sentence
+   */
+  std::string preprocessSentence(const std::string& sentence) const
+  {
+    return applyFactors(applyFilter(sentence));
+  }
+
 };
-
 
 /**
  * Abstract base class for Scorers that work by adding statistics across all
@@ -148,7 +172,7 @@ class Scorer
 class StatisticsBasedScorer : public Scorer
 {
  public:
-  StatisticsBasedScorer(const string& name, const string& config);
+  StatisticsBasedScorer(const std::string& name, const std::string& config);
   virtual ~StatisticsBasedScorer() {}
   virtual void score(const candidates_t& candidates, const diffs_t& diffs,
                      statscores_t& scores) const;
@@ -158,17 +182,17 @@ class StatisticsBasedScorer : public Scorer
   enum RegularisationType {
     NONE,
     AVERAGE,
-    MINIMUM,
+    MINIMUM
   };
 
   /**
    * Calculate the actual score.
    */
-  virtual statscore_t calculateScore(const vector<int>& totals) const = 0;
+  virtual statscore_t calculateScore(const std::vector<int>& totals) const = 0;
 
   // regularisation
   RegularisationType m_regularization_type;
-  size_t  m_regularization_window;
+  std::size_t  m_regularization_window;
 };
 
-#endif // __SCORER_H__
+#endif // MERT_SCORER_H_
