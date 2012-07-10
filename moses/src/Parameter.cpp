@@ -146,6 +146,12 @@ Parameter::Parameter()
   AddParam("alignment-output-file", "print output word alignments into given file");
   AddParam("sort-word-alignment", "Sort word alignments for more consistent display. 0=no sort (default), 1=target order");
   AddParam("start-translation-id", "Id of 1st input. Default = 0");
+
+  // TODO: (nickruiz) LazyMDI params
+  AddParam("lmodel-adapt-baseline", "baseline unigram LM for Lazy MDI");
+  AddParam("lmodel-adapt-file", "adaptation text for Lazy MDI");
+  AddParam("lmodel-adapt-context-size", "number of source text lines to use as context for Lazy MDI adaptation. 0=all lines (default)");
+  AddParam("weight-l-adapt", "weight for Lazy MDI feature");
 }
 
 Parameter::~Parameter()

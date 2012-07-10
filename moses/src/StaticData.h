@@ -47,6 +47,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "TranslationOptionList.h"
 #include "TranslationSystem.h"
 
+using namespace std;
+
 namespace Moses
 {
 
@@ -62,6 +64,9 @@ class UnknownWordPenaltyProducer;
 class SyntacticLanguageModel;
 #endif
 class TranslationSystem;
+
+// TODO: (nickruiz) LazyMDI include - StaticData.h
+class LazyMDI;
 
 typedef std::pair<std::string, float> UnknownLHSEntry;
 typedef std::vector<UnknownLHSEntry>  UnknownLHSList;
@@ -206,6 +211,9 @@ protected:
   UnknownLHSList m_unknownLHS;
   WordAlignmentSort m_wordAlignmentSort;
 
+  // TODO: (nickruiz) LazyMDI member declaration
+  LazyMDI* m_LazyMDI; //! Lazy MDI adaptation
+
   int m_threadCount;
   long m_startTranslationId;
   
@@ -233,6 +241,9 @@ protected:
   bool LoadGlobalLexicalModel();
   void ReduceTransOptCache() const;
   bool m_continuePartialTranslation;
+
+  //! load Lazy MDI adapter
+  bool LoadLazyMDI();
 
 public:
 

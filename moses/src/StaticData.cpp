@@ -41,6 +41,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "DecodeGraph.h"
 #include "InputFileStream.h"
 
+// TODO: (nickruiz) LazyMDI include - StaticData.cpp
+#include "LazyMDI.h"
+
 #ifdef HAVE_SYNLM
 #include "SyntacticLanguageModel.h"
 #endif
@@ -509,6 +512,9 @@ bool StaticData::LoadData(Parameter *parameter)
   if (!LoadGlobalLexicalModel()) return false;
   if (!LoadDecodeGraphs()) return false;
 
+  // TODO: (nickruiz) Add LoadLazyMDI() to LoadData
+  if (!LoadLazyMDI()) return false;
+
 
   //configure the translation systems with these tables
   vector<string> tsConfig = m_parameter->GetParam("translation-systems");
@@ -595,6 +601,9 @@ bool StaticData::LoadData(Parameter *parameter)
       m_translationSystems.find(config[0])->second.AddFeatureFunction(m_syntacticLanguageModel);
     }
 #endif
+
+    // TODO: (nickruiz) Adding m_LazyMDI
+    m_translationSystems.find(config[0])->second.AddFeatureFunction(m_LazyMDI);
   }
 
 
@@ -644,6 +653,10 @@ StaticData::~StaticData()
 
   // small score producers
   delete m_unknownWordPenaltyProducer;
+
+  // TODO: (nickruiz) LazyMDI destructor
+  // delete Lazy MDI adapter
+  delete m_LazyMDI;
 
   //delete m_parameter;
 
@@ -818,7 +831,7 @@ bool StaticData::LoadLanguageModels()
       m_allWeights.push_back(weightAll[i]);
     }
 
-    // dictionary upper-bounds fo all IRST LMs
+    // dictionary upper-bounds for all IRST LMs
     vector<int> LMdub = Scan<int>(m_parameter->GetParam("lmodel-dub"));
     if (m_parameter->GetParam("lmodel-dub").size() == 0) {
       for(size_t i=0; i<m_parameter->GetParam("lmodel-file").size(); i++)
@@ -1257,6 +1270,121 @@ bool StaticData::LoadDecodeGraphs()
   const vector<string> &backoffVector = m_parameter->GetParam("decoding-graph-backoff");
   for(size_t i=0; i<m_decodeGraphs.size() && i<backoffVector.size(); i++) {
     m_decodeGraphBackoff[i] = Scan<size_t>(backoffVector[i]);
+  }
+
+  return true;
+}
+
+bool StaticData::LoadLazyMDI()
+{
+  const int DEFAULT_CONTEXT_SIZE = 0;
+  const vector<string> &baselineLMVector = m_parameter->GetParam("lmodel-adapt-baseline");
+  const vector<string> &adaptFileVector = m_parameter->GetParam("lmodel-adapt-file");
+  const vector<int> &contextSizeVector = Scan<int>(m_parameter->GetParam("lmodel-adapt-context-size"));
+  const vector<float> &weightVector = Scan<float>(m_parameter->GetParam("weight-l-adapt"));
+
+  int adaptFileCount = adaptFileVector.size();
+  int baselineLMVectorCount = baselineLMVector.size();
+  int weightVectorCount = weightVector.size();
+
+  int contextSize = contextSizeVector.size() > 0 ? contextSizeVector[0] : DEFAULT_CONTEXT_SIZE;
+
+  LanguageModel* baseLM = NULL;
+
+  // TODO: (nickruiz) LazyMDI: Only one adaptation file/feature weight is used for now.
+  if (adaptFileCount > 0 && baselineLMVectorCount > 0)
+  {
+    if (weightVectorCount == 0)
+    {
+      stringstream strme;
+      strme << "You specified " << adaptFileCount
+            << " adaptation files for Lazy MDI adaptation (lmodel-adapt-file), but you did not provide any feature weights (lmodel-l-adapt)!";
+      UserMessage::Add(strme.str());
+      return false;
+    }
+
+    const string adaptFile = adaptFileVector[0];
+    const string baseFile = baselineLMVector[0];
+    float weight = weightVector[0];
+
+    // TODO: (nickruiz) Extract the adaptation LM list information
+    vector<string> adaptFileToken = Tokenize(adaptFile);
+    // type = implementation, SRI, IRST etc
+    LMImplementation adaptLMImpl = static_cast<LMImplementation>(Scan<int>(adaptFileToken[0]));
+
+    // factorType = 0 = Surface, 1 = POS, 2 = Stem, 3 = Morphology, etc
+    vector<FactorType>  adaptFactorTypes   = Tokenize<FactorType>(adaptFileToken[1], ",");
+
+    // adaptOrder = 2 = bigram, 3 = trigram, etc
+    size_t adaptOrder = Scan<int>(adaptFileToken[2]);
+
+    const string adaptFilePath = adaptFileToken[3];
+
+    if (adaptOrder != 1)
+    {
+      UserMessage::Add("Adaptation LMs must be unigram for Lazy MDI");
+      return false;
+    }
+
+    // TODO: (nickruiz) Load baseline LM into memory and pass to LazyMDI constructor.
+    vector<string> token = Tokenize(baseFile);
+
+    // type = implementation, SRI, IRST etc
+    LMImplementation lmImplementation = static_cast<LMImplementation>(Scan<int>(token[0]));
+
+    // factorType = 0 = Surface, 1 = POS, 2 = Stem, 3 = Morphology, etc
+    vector<FactorType>  factorTypes   = Tokenize<FactorType>(token[1], ",");
+
+    // nGramOrder = 2 = bigram, 3 = trigram, etc
+    size_t nGramOrder = Scan<int>(token[2]);
+
+    string &languageModelFile = token[3];
+    if (token.size() == 5)
+    {
+      if (lmImplementation==IRST)
+        languageModelFile += " " + token[4];
+      else
+      {
+        UserMessage::Add("Expected format 'LM-TYPE FACTOR-TYPE NGRAM-ORDER filePath [mapFilePath (only for IRSTLM)]'");
+        return false;
+      }
+    }
+
+    // Make sure the background LM is unigram
+    if (nGramOrder != 1)
+    {
+      UserMessage::Add("Background LM must be unigram for Lazy MDI.");
+    }
+    else
+    {
+      IFVERBOSE(1)
+      PrintUserTime(string("Start loading LanguageModel ") + languageModelFile);
+
+//      ScoreIndexManager       mgr;
+//      mgr.InitFeatureNames();
+
+      baseLM = LanguageModelFactory::CreateLanguageModel(
+             lmImplementation
+             , factorTypes
+             , nGramOrder
+             , languageModelFile
+             , m_scoreIndexManager
+//             , mgr
+             , 0);
+    }
+
+
+    if (baseLM == NULL) {
+      UserMessage::Add("Background LM was not created (for Lazy MDI). We probably don't have it compiled");
+      return false;
+    }
+
+    m_LazyMDI = new LazyMDI(weight, adaptLMImpl, adaptFactorTypes, adaptOrder, adaptFilePath, baseLM, contextSize);
+
+//    // Test loading an adaptation LM
+//    LanguageModel* adaptModel = m_LazyMDI->LoadAdaptLM(adaptFilePath);
+//    UserMessage::Add("Adapt LM type: " + adaptModel->GetScoreProducerWeightShortName(0));
+
   }
 
   return true;

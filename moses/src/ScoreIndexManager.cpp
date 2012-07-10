@@ -19,7 +19,8 @@ void ScoreIndexManager::AddScoreProducer(const ScoreProducer* sp)
 {
   // Producers must be inserted in the order they are created
   const_cast<ScoreProducer*>(sp)->CreateScoreBookkeepingID();
-  CHECK(m_begins.size() == (sp->GetScoreBookkeepingID()));
+  // TODO: (nickruiz) Removed sp->GetScoreBookkeepingID() order check in ScoreIndexManager::AddScoreProducer
+//  CHECK(m_begins.size() == (sp->GetScoreBookkeepingID()));
 
   m_producers.push_back(sp);
 

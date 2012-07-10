@@ -44,6 +44,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "rule.pb.h"
 #endif
 
+#include <boost/lexical_cast.hpp>
+
 using namespace std;
 
 namespace Moses
@@ -57,7 +59,8 @@ Manager::Manager(InputType const& source, SearchAlgorithm searchAlgorithm, const
   ,m_hypoId(0)
   ,m_source(source)
 {
-  m_system->InitializeBeforeSentenceProcessing(source);
+  VERBOSE(1, "Manager.cpp: Translation ID is: " << boost::lexical_cast<std::string>(source.GetTranslationId()) << std::endl);
+//  m_system->InitializeBeforeSentenceProcessing(source);
 }
 
 Manager::~Manager()

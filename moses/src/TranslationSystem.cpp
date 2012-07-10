@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <stdexcept>
 #include <iostream>
+#include <boost/lexical_cast.hpp>
 
 #include "DecodeGraph.h"
 #include "DecodeStep.h"
@@ -30,6 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "StaticData.h"
 #include "TranslationSystem.h"
 #include "Util.h"
+#include "FeatureFunction.h"
 
 using namespace std;
 
@@ -116,6 +118,7 @@ void TranslationSystem::ConfigDictionaries()
 
 void TranslationSystem::InitializeBeforeSentenceProcessing(const InputType& source) const
 {
+  VERBOSE(1, "TranslationSystem::InitializeBeforeSentenceProcessing" << std::endl);
   for (vector<PhraseDictionaryFeature*>::const_iterator i = m_phraseDictionaries.begin();
        i != m_phraseDictionaries.end(); ++i) {
     (*i)->InitDictionary(this,source);
@@ -133,6 +136,14 @@ void TranslationSystem::InitializeBeforeSentenceProcessing(const InputType& sour
     LanguageModel &languageModel = **iterLM;
     languageModel.InitializeBeforeSentenceProcessing();
   }
+
+  // Initialize stateful feature functions.
+  for (size_t i=0; i < m_statefulFFs.size(); ++i)
+  {
+    (const_cast<StatefulFeatureFunction*> (m_statefulFFs[i]))->InitializeForInput(source);
+  }
+
+  VERBOSE(1, "TranslationSystem.cpp: Translation ID is: " << boost::lexical_cast<std::string>(source.GetTranslationId()) << std::endl);
 }
 
 void TranslationSystem::CleanUpAfterSentenceProcessing() const
