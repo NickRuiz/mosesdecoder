@@ -153,7 +153,7 @@ class Moses():
                 self.phrase_target[target][i] = 1
 
 
-    def load_reordering_probabilities(self,line,priority,i,store='pairs'):
+    def load_reordering_probabilities(self,line,priority,i,**unused):
         """take single reordering table line and store probablities in internal data structure"""
         
         src = line[0]
@@ -161,10 +161,13 @@ class Moses():
 
         model_probabilities = map(float,line[2].split())
         reordering_probabilities = self.reordering_pairs[src][target]
-                
-        for j,p in enumerate(model_probabilities):
-            reordering_probabilities[j][i] = p
-
+        
+        try:
+            for j,p in enumerate(model_probabilities):
+                reordering_probabilities[j][i] = p
+        except IndexError:
+            sys.stderr.write('\nIndexError: Did you correctly specify the number of reordering features? (--number_of_features N in command line)\n')
+            exit()
 
     def traverse_incrementally(self,table,models,load_lines,store_flag,mode='interpolate',inverted=False,lowmem=False,flags=None):
         """hack-ish way to find common phrase pairs in multiple models in one traversal without storing it all in memory
@@ -217,11 +220,11 @@ class Moses():
         
         a, b, prob = line.split(b' ')
         
-        if side == 'e2f' and not e2f_filter or a in e2f_filter and b in e2f_filter[a]:
+        if side == 'e2f' and (not e2f_filter or a in e2f_filter and b in e2f_filter[a]):
             
             self.word_pairs_e2f[a][b][i] = float(prob)
             
-        elif side == 'f2e' and not f2e_filter or a in f2e_filter and b in f2e_filter[a]:
+        elif side == 'f2e' and (not f2e_filter or a in f2e_filter and b in f2e_filter[a]):
             
             self.word_pairs_f2e[a][b][i] = float(prob)
     
@@ -294,7 +297,7 @@ class Moses():
                 sys.stderr.write('Error: unexpected phrase table format. Your current configuration requires alignment information. Make sure you trained your model with -phrase-word-alignment\n')
                 exit()
             
-            self.phrase_pairs[src][target][1] = ['',line[3].lstrip(b'| ')]
+            self.phrase_pairs[src][target][1] = [b'',line[3].lstrip(b'| ')]
    
         else:
             sys.stderr.write('Error: unexpected phrase table format. Are you using a very old/new version of Moses with different formatting?\n')
@@ -419,7 +422,7 @@ class Moses():
         if 0 in features:
             return ''
         
-        features = b' '.join([b'%6g' %(f) for f in features])
+        features = b' '.join([b'%.6g' %(f) for f in features])
         
         line = b"%s ||| %s ||| %s\n" %(src,target,features)
         return line

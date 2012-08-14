@@ -71,7 +71,10 @@ class LazyMDI;
 typedef std::pair<std::string, float> UnknownLHSEntry;
 typedef std::vector<UnknownLHSEntry>  UnknownLHSList;
 
-/** Contains global variables and contants */
+/** Contains global variables and contants.
+ *  Only 1 object of this class should be instantiated.
+ *  A const object of this class is accessible by any function during decoding by calling StaticData::Instance();
+ */
 class StaticData
 {
 private:
@@ -203,6 +206,9 @@ protected:
   bool m_cubePruningLazyScoring;
   size_t m_ruleLimit;
 
+  // Whether to load compact phrase table and reordering table into memory
+  bool m_minphrMemory;
+  bool m_minlexrMemory;
 
   // Initial = 0 = can be used when creating poss trans
   // Other = 1 = used to calculate LM score once all steps have been processed
@@ -242,6 +248,8 @@ protected:
   void ReduceTransOptCache() const;
   bool m_continuePartialTranslation;
 
+  std::string m_binPath;
+
   //! load Lazy MDI adapter
   bool LoadLazyMDI();
 
@@ -257,19 +265,8 @@ public:
     return s_instance;
   }
 
-  /** delete current static instance and replace with another.
-  	* Used by gui front end
-  	*/
-#ifdef WIN32
-  static void Reset() {
-    s_instance = StaticData();
-  }
-#endif
-
   //! Load data into static instance. This function is required as LoadData() is not const
-  static bool LoadDataStatic(Parameter *parameter) {
-    return s_instance.LoadData(parameter);
-  }
+  static bool LoadDataStatic(Parameter *parameter, const std::string &execPath);
 
   //! Main function to load everything. Also initialize the Parameter object
   bool LoadData(Parameter *parameter);
@@ -402,6 +399,15 @@ public:
   bool NBestIncludesAlignment() const {
     return m_nBestIncludesAlignment;
   }
+  
+  bool UseMinphrInMemory() const {
+     return m_minphrMemory;
+  }
+
+  bool UseMinlexrInMemory() const {
+     return m_minlexrMemory;
+  }
+  
   size_t GetNumLinkParams() const {
     return m_numLinkParams;
   }
@@ -629,6 +635,9 @@ public:
   
   long GetStartTranslationId() const
   { return m_startTranslationId; }
+  
+  void SetExecPath(const std::string &path);
+  const std::string &GetBinDirectory() const;
 };
 
 }

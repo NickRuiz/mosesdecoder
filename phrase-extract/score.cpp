@@ -35,43 +35,12 @@
 #include "OutputFileStream.h"
 
 using namespace std;
+using namespace MosesTraining;
 
 #define LINE_MAX_LENGTH 100000
 
-Vocabulary vcbT;
-Vocabulary vcbS;
-
-class LexicalTable
+namespace MosesTraining
 {
-public:
-  map< WORD_ID, map< WORD_ID, double > > ltable;
-  void load( char[] );
-  double permissiveLookup( WORD_ID wordS, WORD_ID wordT ) {
-    // cout << endl << vcbS.getWord( wordS ) << "-" << vcbT.getWord( wordT ) << ":";
-    if (ltable.find( wordS ) == ltable.end()) return 1.0;
-    if (ltable[ wordS ].find( wordT ) == ltable[ wordS ].end()) return 1.0;
-    // cout << ltable[ wordS ][ wordT ];
-    return ltable[ wordS ][ wordT ];
-  }
-};
-
-vector<string> tokenize( const char [] );
-
-void writeCountOfCounts( const string &fileNameCountOfCounts );
-void processPhrasePairs( vector< PhraseAlignment > & , ostream &phraseTableFile);
-PhraseAlignment* findBestAlignment(const PhraseAlignmentCollection &phrasePair );
-void outputPhrasePair(const PhraseAlignmentCollection &phrasePair, float, int, ostream &phraseTableFile );
-double computeLexicalTranslation( const PHRASE &, const PHRASE &, PhraseAlignment * );
-double computeUnalignedPenalty( const PHRASE &, const PHRASE &, PhraseAlignment * );
-set<string> functionWordList;
-void loadFunctionWords( const char* fileNameFunctionWords );
-double computeUnalignedFWPenalty( const PHRASE &, const PHRASE &, PhraseAlignment * );
-void calcNTLengthProb(const vector< PhraseAlignment* > &phrasePairs
-                      , map<size_t, map<size_t, float> > &sourceProb
-                      , map<size_t, map<size_t, float> > &targetProb);
-void printSourcePhrase(const PHRASE &, const PHRASE &, const PhraseAlignment &, ostream &);
-void printTargetPhrase(const PHRASE &, const PHRASE &, const PhraseAlignment &, ostream &);
-
 LexicalTable lexTable;
 bool inverseFlag = false;
 bool hierarchicalFlag = false;
@@ -92,6 +61,28 @@ int countOfCounts[COC_MAX+1];
 int totalDistinct = 0;
 float minCountHierarchical = 0;
 
+Vocabulary vcbT;
+Vocabulary vcbS;
+  
+} // namespace
+
+vector<string> tokenize( const char [] );
+
+void writeCountOfCounts( const string &fileNameCountOfCounts );
+void processPhrasePairs( vector< PhraseAlignment > & , ostream &phraseTableFile);
+PhraseAlignment* findBestAlignment(const PhraseAlignmentCollection &phrasePair );
+void outputPhrasePair(const PhraseAlignmentCollection &phrasePair, float, int, ostream &phraseTableFile );
+double computeLexicalTranslation( const PHRASE &, const PHRASE &, PhraseAlignment * );
+double computeUnalignedPenalty( const PHRASE &, const PHRASE &, PhraseAlignment * );
+set<string> functionWordList;
+void loadFunctionWords( const string &fileNameFunctionWords );
+double computeUnalignedFWPenalty( const PHRASE &, const PHRASE &, PhraseAlignment * );
+void calcNTLengthProb(const vector< PhraseAlignment* > &phrasePairs
+                      , map<size_t, map<size_t, float> > &sourceProb
+                      , map<size_t, map<size_t, float> > &targetProb);
+void printSourcePhrase(const PHRASE &, const PHRASE &, const PhraseAlignment &, ostream &);
+void printTargetPhrase(const PHRASE &, const PHRASE &, const PhraseAlignment &, ostream &);
+
 int main(int argc, char* argv[])
 {
   cerr << "Score v2.0 written by Philipp Koehn\n"
@@ -101,11 +92,11 @@ int main(int argc, char* argv[])
     cerr << "syntax: score extract lex phrase-table [--Inverse] [--Hierarchical] [--LogProb] [--NegLogProb] [--NoLex] [--GoodTuring] [--KneserNey] [--WordAlignment] [--UnalignedPenalty] [--UnalignedFunctionWordPenalty function-word-file] [--MinCountHierarchical count] [--OutputNTLengths] [--PCFG] [--UnpairedExtractFormat] [--ConditionOnTargetLHS]\n";
     exit(1);
   }
-  char* fileNameExtract = argv[1];
-  char* fileNameLex = argv[2];
-  char* fileNamePhraseTable = argv[3];
+  string fileNameExtract = argv[1];
+  string fileNameLex = argv[2];
+  string fileNamePhraseTable = argv[3];
   string fileNameCountOfCounts;
-  char* fileNameFunctionWords;
+  string fileNameFunctionWords;
 
   for(int i=4; i<argc; i++) {
     if (strcmp(argv[i],"inverse") == 0 || strcmp(argv[i],"--Inverse") == 0) {
@@ -192,7 +183,7 @@ int main(int argc, char* argv[])
   // output file: phrase translation table
 	ostream *phraseTableFile;
 
-	if (strcmp(fileNamePhraseTable, "-") == 0) {
+	if (fileNamePhraseTable == "-") {
 		phraseTableFile = &cout;
 	}
 	else {
@@ -340,12 +331,21 @@ PhraseAlignment* findBestAlignment(const PhraseAlignmentCollection &phrasePair )
   PhraseAlignment* bestAlignment;
   
   for(size_t i=0; i<phrasePair.size(); i++) {
-    if (phrasePair[i]->count > bestAlignmentCount) {
-      bestAlignmentCount = phrasePair[i]->count;
-      bestAlignment = phrasePair[i];
+    size_t alignInd;
+    if (inverseFlag) 
+    { // count backwards, so that alignments for ties will be the same for both normal & inverse scores
+      alignInd = phrasePair.size() - i - 1;
     }
-  }
-  
+    else {
+      alignInd = i;
+    }
+    
+    if (phrasePair[alignInd]->count > bestAlignmentCount) {
+      bestAlignmentCount = phrasePair[alignInd]->count;
+      bestAlignment = phrasePair[alignInd];
+    }
+  }    
+
   return bestAlignment;
 }
 
@@ -601,11 +601,11 @@ double computeUnalignedFWPenalty( const PHRASE &phraseS, const PHRASE &phraseT, 
   return unaligned;
 }
 
-void loadFunctionWords( const char *fileName )
+void loadFunctionWords( const string &fileName )
 {
   cerr << "Loading function word list from " << fileName;
   ifstream inFile;
-  inFile.open(fileName);
+  inFile.open(fileName.c_str());
   if (inFile.fail()) {
     cerr << " - ERROR: could not open file\n";
     exit(1);
@@ -649,11 +649,11 @@ double computeLexicalTranslation( const PHRASE &phraseS, const PHRASE &phraseT, 
   return lexScore;
 }
 
-void LexicalTable::load( char *fileName )
+void LexicalTable::load( const string &fileName )
 {
   cerr << "Loading lexical translation table from " << fileName;
   ifstream inFile;
-  inFile.open(fileName);
+  inFile.open(fileName.c_str());
   if (inFile.fail()) {
     cerr << " - ERROR: could not open file\n";
     exit(1);
