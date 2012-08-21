@@ -46,7 +46,7 @@ void LazyMDI::LoadAdaptFilePaths()
   string filepath;
   while (getline(buffer, filepath))
   {
-    VERBOSE(1, "filepath: " << filepath << endl);
+    VERBOSE(3, "filepath: " << filepath << endl);
 //    m_adaptFilePaths.push_back(const_cast<string*>(&filepath));
     m_adaptFilePaths.push_back(filepath);
   }
@@ -55,15 +55,21 @@ void LazyMDI::LoadAdaptFilePaths()
 void LazyMDI::LoadAdaptLM(const string &adaptFile)
 {
 
-  m_cache.adaptLM = LanguageModelFactory::CreateLanguageModel(
-               m_adaptModelType,
-               m_adaptFactorType,
-               m_adaptOrder,
-               adaptFile,
-               m_cache.scoreIndexManager,
-//               m_scoreIndexManager,
-//               const_cast<ScoreIndexManager&>(StaticData::Instance().GetScoreIndexManager()),
-               0);
+  if (m_cache.adaptLMPath != adaptFile)
+  {
+    delete m_cache.adaptLM;
+    m_cache.adaptLM = LanguageModelFactory::CreateLanguageModel(
+                 m_adaptModelType,
+                 m_adaptFactorType,
+                 m_adaptOrder,
+                 adaptFile,
+                 m_cache.scoreIndexManager,
+  //               m_scoreIndexManager,
+  //               const_cast<ScoreIndexManager&>(StaticData::Instance().GetScoreIndexManager()),
+                 0);
+
+    m_cache.adaptLMPath = adaptFile;
+  }
 
 }
 
@@ -127,16 +133,16 @@ const FFState* LazyMDI::EmptyHypothesisState(const InputType& input) const
 
 void LazyMDI::InitializeForInput(const InputType& input)
 {
-  VERBOSE(1, "LazyMDI::InitializeForInput - begin\n");
+  VERBOSE(3, "LazyMDI::InitializeForInput - begin\n");
   m_local.reset(new ThreadLocalStorage);
 
   size_t transId = input.GetTranslationId();
-  VERBOSE(1, "input.GetTranslationId(): " << transId << std::endl);
+  VERBOSE(3, "input.GetTranslationId(): " << transId << std::endl);
 
   // TODO: (nickruiz) Warning: It's possible to go out of bounds here.
   const string& adaptLMPath = (m_contextSize == 0)
       ? m_adaptFilePaths[0]
-      : m_adaptFilePaths[(int) floor(min(transId, m_adaptFilePaths.size()) / m_contextSize)];
+      : m_adaptFilePaths[(int) min(floor(transId / m_contextSize), m_adaptFilePaths.size() - 1.0)];
 
 //  // TODO: Don't use a hardcoded value
 //  const string& adaptLMPath = m_adaptFilePaths[0];
@@ -145,7 +151,7 @@ void LazyMDI::InitializeForInput(const InputType& input)
   // TODO: (nickruiz) For now, try loading a single LM automatically.
   LoadAdaptLM(adaptLMPath);
 
-  VERBOSE(1, "LazyMDI::InitializeForInput - end\n");
+  VERBOSE(3, "LazyMDI::InitializeForInput - end\n");
 }
 
 }

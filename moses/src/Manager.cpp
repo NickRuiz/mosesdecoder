@@ -61,7 +61,7 @@ Manager::Manager(size_t lineNumber, InputType const& source, SearchAlgorithm sea
   ,m_hypoId(0)
   ,m_source(source)
 {
-  VERBOSE(1, "Manager.cpp: Translation ID is: " << boost::lexical_cast<std::string>(source.GetTranslationId()) << std::endl);
+  VERBOSE(1, "Translation ID is: " << boost::lexical_cast<std::string>(source.GetTranslationId()) << std::endl);
 //  m_system->InitializeBeforeSentenceProcessing(source);
 }
 

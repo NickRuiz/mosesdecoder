@@ -155,7 +155,7 @@ Parameter::Parameter()
   AddParam("lmodel-adapt-baseline", "baseline unigram LM for Lazy MDI");
   AddParam("lmodel-adapt-file", "adaptation text for Lazy MDI");
   AddParam("lmodel-adapt-context-size", "number of source text lines to use as context for Lazy MDI adaptation. 0=all lines (default)");
-  AddParam("weight-l-adapt", "weight for Lazy MDI feature");
+  AddParam("weight-l-adapt", "lazymdi", "weight for Lazy MDI feature");
 }
 
 Parameter::~Parameter()
