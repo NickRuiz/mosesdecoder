@@ -23,6 +23,7 @@ class LazyMDI : public StatefulFeatureFunction
   {
     const InputType* input;
     LanguageModel* adaptLM;
+    string adaptLMPath;
     ScoreIndexManager scoreIndexManager;
 //
 //    ThreadLocalStorage()
@@ -50,13 +51,14 @@ protected:
   ThreadLocalStorage m_cache;
 
   void LoadAdaptFilePaths();
+  float Sigmoid(float x, float magnitude, float sharpness, float xShift) const;
 
 #ifdef WITH_THREADS
   boost::thread_specific_ptr<ThreadLocalStorage> m_local;
 #else
   std::auto_ptr<ThreadLocalStorage> m_local;
 #endif
-
+	
 public:
 //  LazyMDI(const std::vector<float> &weights);
   LazyMDI(float weight, LMImplementation adaptLMImpl, vector<FactorType> adaptFactorTypes,

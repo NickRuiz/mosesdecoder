@@ -94,6 +94,12 @@ size_t LazyMDI::GetNumScoreComponents() const
   return 1;
 }
 
+float LazyMDI::Sigmoid(float x, float magnitude, float sharpness, float xShift) const
+{
+  // return 2.0 / (1.0 + exp(-1.0 * x));
+  return magnitude / (1.0 + exp(-1.0 * sharpness * x)) + xShift;
+}
+
 FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
                          const FFState* prev_state,
                          ScoreComponentCollection* accumulator) const
@@ -106,8 +112,8 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
   float bgFullScore, bgNGramScore;
   size_t bgOOVCount;
 
+  float totalScore = 0.0f;
   float score = 0.0f;
-  float logScore = 0.0f;
 
   // Extract words from targetPhrase
   std::vector<Word>     m_words;
@@ -122,8 +128,16 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
     tmpPhrase.AddWord(words[i]);
     m_cache.adaptLM->CalcScore(tmpPhrase, adaptFullScore, adaptNGramScore, adaptOOVCount);
     m_backgroundLM->CalcScore(tmpPhrase, bgFullScore, bgNGramScore, bgOOVCount);
-    logScore = adaptFullScore - bgFullScore;
-    score = log(tanh(exp(logScore)));
+
+    score = adaptFullScore - bgFullScore;
+    score = Sigmoid(score, 2.0, 1.0, 0.0);
+
+//    VERBOSE(4, "Testing sigmoid(log(1.0)): " << Sigmoid(log(1.0), 2.0, 1.0, 0.0) << endl);
+//    VERBOSE(4, "Testing sigmoid(log(2.0)): " << Sigmoid(log(2.0), 2.0, 1.0, 0.0) << endl);
+
+    totalScore += log(score);
+//    logScore = adaptFullScore - bgFullScore;
+//    score = log(tanh(exp(logScore)));
   }
 
 //  // Compute the unigram LM scores on the target phrase
@@ -133,7 +147,7 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
 
   // VERBOSE(1, "LazyMDI adapt - bg: " << adaptFullScore << " - " << bgFullScore << " = " << score << std::endl);
 
-  accumulator->PlusEquals( this, score );
+  accumulator->PlusEquals( this, totalScore );
   return NULL;
 }
 
