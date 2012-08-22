@@ -106,12 +106,30 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
   float bgFullScore, bgNGramScore;
   size_t bgOOVCount;
 
-  float score = -1.0f;
+  float score = 0.0f;
+  float logScore = 0.0f;
 
-  // Compute the unigram LM scores on the target phrase
-  m_cache.adaptLM->CalcScore(targetPhrase, adaptFullScore, adaptNGramScore, adaptOOVCount);
-  m_backgroundLM->CalcScore(targetPhrase, bgFullScore, bgNGramScore, bgOOVCount);
-   score = adaptFullScore - bgFullScore;
+  // Extract words from targetPhrase
+  std::vector<Word>     m_words;
+  std::vector<Word>  words;
+  size_t numWords = targetPhrase.GetSize();
+  Phrase tmpPhrase(1);
+
+  for (int i = 0; i < numWords; i++)
+  {
+    words.push_back(targetPhrase.GetWord(i));
+    tmpPhrase.Clear();
+    tmpPhrase.AddWord(words[i]);
+    m_cache.adaptLM->CalcScore(tmpPhrase, adaptFullScore, adaptNGramScore, adaptOOVCount);
+    m_backgroundLM->CalcScore(tmpPhrase, bgFullScore, bgNGramScore, bgOOVCount);
+    logScore = adaptFullScore - bgFullScore;
+    score = log(tanh(exp(logScore)));
+  }
+
+//  // Compute the unigram LM scores on the target phrase
+//  m_cache.adaptLM->CalcScore(targetPhrase, adaptFullScore, adaptNGramScore, adaptOOVCount);
+//  m_backgroundLM->CalcScore(targetPhrase, bgFullScore, bgNGramScore, bgOOVCount);
+//   score = adaptFullScore - bgFullScore;
 
   // VERBOSE(1, "LazyMDI adapt - bg: " << adaptFullScore << " - " << bgFullScore << " = " << score << std::endl);
 
