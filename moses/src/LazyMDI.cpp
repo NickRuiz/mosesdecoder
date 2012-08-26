@@ -1,6 +1,7 @@
 #include <fstream>
 #include <sstream>
 #include <math.h>
+#include <boost/algorithm/string.hpp> 
 
 #include "FFState.h"
 #include "LazyMDI.h"
@@ -94,10 +95,16 @@ size_t LazyMDI::GetNumScoreComponents() const
   return 1;
 }
 
-float LazyMDI::Sigmoid(float x, float magnitude, float sharpness, float xShift) const
+float LazyMDI::SigmoidLog(float x, float magnitude) const
 {
   // return 2.0 / (1.0 + exp(-1.0 * x));
-  return magnitude / (1.0 + exp(-1.0 * sharpness * x)) + xShift;
+//  return magnitude / (1.0 + exp(-1.0 * sharpness * x)) + xShift;
+  return magnitude / (1.0 + exp(-1.0 * x));
+}
+
+float LazyMDI::FastSigmoid(float x, float magnitude) const
+{
+  return magnitude * x / (magnitude + abs(x) - 1.0);
 }
 
 FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
@@ -116,24 +123,41 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
   float score = 0.0f;
 
   // Extract words from targetPhrase
-  std::vector<Word>     m_words;
-  std::vector<Word>  words;
+//  std::vector<Word>  words;
   size_t numWords = targetPhrase.GetSize();
   Phrase tmpPhrase(1);
 
+  string lowercase;
+  Word lowercasedWord;
+  std::vector<FactorType> wordFactors;
+
+  wordFactors.push_back(0);
+
   for (int i = 0; i < numWords; i++)
   {
-    words.push_back(targetPhrase.GetWord(i));
     tmpPhrase.Clear();
-    tmpPhrase.AddWord(words[i]);
+    Word word = targetPhrase.GetWord(i);
+//    words.push_back(targetPhrase.GetWord(i));
+//    tmpPhrase.AddWord(words[i]);
+
+    lowercase = word.GetString(wordFactors, false);
+    VERBOSE(3, "Old word: " << lowercase);
+    boost::algorithm::to_lower(lowercase);
+    VERBOSE(3, "\tNew word: " << lowercase << endl);
+    lowercasedWord.CreateFromString(Input, StaticData::Instance().GetInputFactorOrder(), lowercase, false);
+    tmpPhrase.AddWord(lowercasedWord);
+
     m_cache.adaptLM->CalcScore(tmpPhrase, adaptFullScore, adaptNGramScore, adaptOOVCount);
     m_backgroundLM->CalcScore(tmpPhrase, bgFullScore, bgNGramScore, bgOOVCount);
 
     score = adaptFullScore - bgFullScore;
-    score = Sigmoid(score, 2.0, 1.0, 0.0);
 
-//    VERBOSE(4, "Testing sigmoid(log(1.0)): " << Sigmoid(log(1.0), 2.0, 1.0, 0.0) << endl);
-//    VERBOSE(4, "Testing sigmoid(log(2.0)): " << Sigmoid(log(2.0), 2.0, 1.0, 0.0) << endl);
+    // TODO: (nickruiz) Pick one!
+    score = SigmoidLog(score, 2.0);
+    // score = FastSigmoid(exp(score), 2.0);
+
+//    VERBOSE(4, "Testing sigmoid(log(1.0)): " << SigmoidLog(log(1.0), 2.0, 1.0, 0.0) << endl);
+//    VERBOSE(4, "Testing sigmoid(log(2.0)): " << SigmoidLog(log(2.0), 2.0, 1.0, 0.0) << endl);
 
     totalScore += log(score);
 //    logScore = adaptFullScore - bgFullScore;
@@ -169,7 +193,7 @@ void LazyMDI::InitializeForInput(const InputType& input)
   m_local.reset(new ThreadLocalStorage);
 
   size_t transId = input.GetTranslationId();
-  VERBOSE(3, "input.GetTranslationId(): " << transId << std::endl);
+  VERBOSE(1, "input.GetTranslationId(): " << transId << std::endl);
 
   // TODO: (nickruiz) Warning: It's possible to go out of bounds here.
   const string& adaptLMPath = (m_contextSize == 0)
