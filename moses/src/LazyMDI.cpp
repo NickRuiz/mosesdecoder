@@ -139,7 +139,9 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
     Word word = targetPhrase.GetWord(i);
 //    words.push_back(targetPhrase.GetWord(i));
 //    tmpPhrase.AddWord(words[i]);
-
+    
+    // Only compute lowercased unigram ratios. 
+    // We may not have sufficient statistics for cased words in our adaptation text.
     lowercase = word.GetString(wordFactors, false);
     VERBOSE(3, "Old word: " << lowercase);
     boost::algorithm::to_lower(lowercase);
@@ -150,26 +152,30 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
     m_cache.adaptLM->CalcScore(tmpPhrase, adaptFullScore, adaptNGramScore, adaptOOVCount);
     m_backgroundLM->CalcScore(tmpPhrase, bgFullScore, bgNGramScore, bgOOVCount);
 
-    score = adaptFullScore - bgFullScore;
+    if (adaptOOVCount > 0)
+    {
+      
+      VERBOSE(1, "OOV: `" << lowercase << "` " << adaptOOVCount << endl);
+      // OOV words in the adaptation model should not be penalized.
+      // Instead, fix the unigram ratio to 1.
+      // Since f(1) = 1, don't bother passing it through the sigmoid function.
+      score = 1.0;
+    }
+    else
+    {
+      score = adaptFullScore - bgFullScore;
 
-    // TODO: (nickruiz) Pick one!
-    score = SigmoidLog(score, 2.0);
-    // score = FastSigmoid(exp(score), 2.0);
+      // TODO: (nickruiz) Pick one!
+      score = SigmoidLog(score, 2.0);
+      // score = FastSigmoid(exp(score), 2.0);
 
-//    VERBOSE(4, "Testing sigmoid(log(1.0)): " << SigmoidLog(log(1.0), 2.0, 1.0, 0.0) << endl);
-//    VERBOSE(4, "Testing sigmoid(log(2.0)): " << SigmoidLog(log(2.0), 2.0, 1.0, 0.0) << endl);
+//      VERBOSE(4, "Testing sigmoid(log(1.0)): " << SigmoidLog(log(1.0), 2.0, 1.0, 0.0) << endl);
+//      VERBOSE(4, "Testing sigmoid(log(2.0)): " << SigmoidLog(log(2.0), 2.0, 1.0, 0.0) << endl);
+
+    }
 
     totalScore += log(score);
-//    logScore = adaptFullScore - bgFullScore;
-//    score = log(tanh(exp(logScore)));
   }
-
-//  // Compute the unigram LM scores on the target phrase
-//  m_cache.adaptLM->CalcScore(targetPhrase, adaptFullScore, adaptNGramScore, adaptOOVCount);
-//  m_backgroundLM->CalcScore(targetPhrase, bgFullScore, bgNGramScore, bgOOVCount);
-//   score = adaptFullScore - bgFullScore;
-
-  // VERBOSE(1, "LazyMDI adapt - bg: " << adaptFullScore << " - " << bgFullScore << " = " << score << std::endl);
 
   accumulator->PlusEquals( this, totalScore );
   return NULL;

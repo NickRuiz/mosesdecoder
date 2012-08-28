@@ -51,7 +51,9 @@ protected:
   ThreadLocalStorage m_cache;
 
   void LoadAdaptFilePaths();
-  float Sigmoid(float x, float magnitude, float sharpness, float xShift) const;
+  // float SigmoidLog(float x, float magnitude, float sharpness, float xShift) const;
+  float SigmoidLog(float x, float magnitude) const;
+  float FastSigmoid(float x, float magnitude) const;
 
 #ifdef WITH_THREADS
   boost::thread_specific_ptr<ThreadLocalStorage> m_local;
@@ -60,6 +62,7 @@ protected:
 #endif
 	
 public:
+  // enum SigmoidType {SigmoidLog, FastSigmoid};
 //  LazyMDI(const std::vector<float> &weights);
   LazyMDI(float weight, LMImplementation adaptLMImpl, vector<FactorType> adaptFactorTypes,
       size_t adaptOrder, string adaptFilePath, LanguageModel* baseLM, int contextSize);
