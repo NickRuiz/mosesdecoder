@@ -14,7 +14,7 @@ namespace Moses
 {
 
 LazyMDI::LazyMDI(float weight, LMImplementation adaptLMImpl, vector<FactorType> adaptFactorTypes,
-    size_t adaptOrder, string adaptFilePath, LanguageModel* baseLM, int contextSize)
+    size_t adaptOrder, string adaptFilePath, LanguageModel* baseLM, int contextSize, float adaptMagnitude)
 {
   const_cast<ScoreIndexManager&> \
     (StaticData::Instance().GetScoreIndexManager()) \
@@ -25,6 +25,7 @@ LazyMDI::LazyMDI(float weight, LMImplementation adaptLMImpl, vector<FactorType> 
   m_adaptFile = adaptFilePath;
   m_contextSize = contextSize;
   m_backgroundLM = baseLM;
+  m_adaptMagnitude = adaptMagnitude;
 
   LoadAdaptFilePaths();
 
@@ -166,11 +167,16 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
       score = adaptFullScore - bgFullScore;
 
       // TODO: (nickruiz) Pick one!
-      score = SigmoidLog(score, 2.0);
+      if (m_adaptMagnitude == 2.0)
+      {
+        score = SigmoidLog(score, m_adaptMagnitude);
+      }
+      else
+      {
+        score = FastSigmoid(exp(score), m_adaptMagnitude);
+      }
+      // score = SigmoidLog(score, 2.0);
       // score = FastSigmoid(exp(score), 2.0);
-
-//      VERBOSE(4, "Testing sigmoid(log(1.0)): " << SigmoidLog(log(1.0), 2.0, 1.0, 0.0) << endl);
-//      VERBOSE(4, "Testing sigmoid(log(2.0)): " << SigmoidLog(log(2.0), 2.0, 1.0, 0.0) << endl);
 
     }
 

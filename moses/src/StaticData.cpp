@@ -526,7 +526,6 @@ bool StaticData::LoadData(Parameter *parameter)
   // TODO: (nickruiz) Add LoadLazyMDI() to LoadData
   if (!LoadLazyMDI()) return false;
 
-
   //configure the translation systems with these tables
   vector<string> tsConfig = m_parameter->GetParam("translation-systems");
   if (!tsConfig.size()) {
@@ -614,9 +613,10 @@ bool StaticData::LoadData(Parameter *parameter)
 #endif
 
     // TODO: (nickruiz) Adding m_LazyMDI
-    m_translationSystems.find(config[0])->second.AddFeatureFunction(m_LazyMDI);
+    if (m_LazyMDI != NULL) {
+      m_translationSystems.find(config[0])->second.AddFeatureFunction(m_LazyMDI);
+    }
   }
-
 
   m_scoreIndexManager.InitFeatureNames();
 
@@ -1293,10 +1293,12 @@ bool StaticData::LoadLazyMDI()
   const vector<string> &adaptFileVector = m_parameter->GetParam("lmodel-adapt-file");
   const vector<int> &contextSizeVector = Scan<int>(m_parameter->GetParam("lmodel-adapt-context-size"));
   const vector<float> &weightVector = Scan<float>(m_parameter->GetParam("weight-l-adapt"));
+	const vector<float> &magnitudeVector = Scan<float>(m_parameter->GetParam("adapt-magnitude"));
 
   int adaptFileCount = adaptFileVector.size();
   int baselineLMVectorCount = baselineLMVector.size();
   int weightVectorCount = weightVector.size();
+	int adaptMagnitudeCount = magnitudeVector.size();
 
   int contextSize = contextSizeVector.size() > 0 ? contextSizeVector[0] : DEFAULT_CONTEXT_SIZE;
 
@@ -1317,6 +1319,7 @@ bool StaticData::LoadLazyMDI()
     const string adaptFile = adaptFileVector[0];
     const string baseFile = baselineLMVector[0];
     float weight = weightVector[0];
+		float adaptMagnitude = adaptMagnitudeCount > 0 ? magnitudeVector[0] : 2.0;
 
     // TODO: (nickruiz) Extract the adaptation LM list information
     vector<string> adaptFileToken = Tokenize(adaptFile);
@@ -1390,7 +1393,7 @@ bool StaticData::LoadLazyMDI()
       return false;
     }
 
-    m_LazyMDI = new LazyMDI(weight, adaptLMImpl, adaptFactorTypes, adaptOrder, adaptFilePath, baseLM, contextSize);
+    m_LazyMDI = new LazyMDI(weight, adaptLMImpl, adaptFactorTypes, adaptOrder, adaptFilePath, baseLM, contextSize, adaptMagnitude);
 
 //    // Test loading an adaptation LM
 //    LanguageModel* adaptModel = m_LazyMDI->LoadAdaptLM(adaptFilePath);

@@ -156,6 +156,7 @@ Parameter::Parameter()
   AddParam("lmodel-adapt-file", "adaptation text for Lazy MDI");
   AddParam("lmodel-adapt-context-size", "number of source text lines to use as context for Lazy MDI adaptation. 0=all lines (default)");
   AddParam("weight-l-adapt", "lazymdi", "weight for Lazy MDI feature");
+  AddParam("adapt-magnitude", "adapt-magnitude", "Magnitude for Lazy MDI adaptation, before the feature weight is applied.");
 }
 
 Parameter::~Parameter()

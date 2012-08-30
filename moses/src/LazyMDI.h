@@ -45,6 +45,7 @@ protected:
 //  vector<const string*> m_adaptFilePaths;
   vector<string> m_adaptFilePaths;
   LanguageModel* m_backgroundLM;
+  float m_adaptMagnitude;
 
 
 //  ScoreIndexManager       m_scoreIndexManager;
@@ -65,7 +66,7 @@ public:
   // enum SigmoidType {SigmoidLog, FastSigmoid};
 //  LazyMDI(const std::vector<float> &weights);
   LazyMDI(float weight, LMImplementation adaptLMImpl, vector<FactorType> adaptFactorTypes,
-      size_t adaptOrder, string adaptFilePath, LanguageModel* baseLM, int contextSize);
+      size_t adaptOrder, string adaptFilePath, LanguageModel* baseLM, int contextSize, float adaptMagnitude);
   virtual ~LazyMDI();
 
   size_t GetNumScoreComponents() const;
