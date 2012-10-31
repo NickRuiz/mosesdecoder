@@ -289,7 +289,7 @@ TargetPhraseVectorPtr PhraseDecoder::DecodeCollection(
     if(state == New)
     {
       // Creating new TargetPhrase on the heap
-      tpv->push_back(TargetPhrase());
+      tpv->push_back(TargetPhrase(Output));
       targetPhrase = &tpv->back();
       
       targetPhrase->SetSourcePhrase(sourcePhrase);
@@ -432,8 +432,8 @@ TargetPhraseVectorPtr PhraseDecoder::DecodeCollection(
       {
         //PhraseDictionaryMultiModel may use input phrase dictionaries with a different number of features than it is assigned in the log-linear model;
         //filling extra slots with zeroes to prevent error messages on the way
-        if (m_phraseDictionary.GetNumScoreComponentMultiModel() > 0 && m_phraseDictionary.GetNumScoreComponentMultiModel() > m_numScoreComponent) {
-          scores.resize(m_phraseDictionary.GetNumScoreComponentMultiModel());
+        if (m_phraseDictionary.GetNumScoreComponentsMultiModel() > 0 && m_phraseDictionary.GetNumScoreComponentsMultiModel() > m_numScoreComponent) {
+          scores.resize(m_phraseDictionary.GetNumScoreComponentsMultiModel());
         }
         targetPhrase->SetScore(m_feature, scores, ScoreComponentCollection() /*sparse*/,*m_weight, m_weightWP, *m_languageModels);
         

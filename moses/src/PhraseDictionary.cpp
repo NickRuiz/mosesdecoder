@@ -26,6 +26,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "RuleTable/PhraseDictionaryALSuffixArray.h"
 #include "RuleTable/PhraseDictionaryFuzzyMatch.h"
 #include "PhraseDictionaryMultiModel.h"
+#include "PhraseDictionaryInterpolation.h"
+#include "PhraseDictionaryFillup.h"
 
 #ifndef WIN32
 #include "PhraseDictionaryDynSuffixArray.h"
@@ -80,7 +82,7 @@ PhraseDictionaryFeature::PhraseDictionaryFeature
   m_allPaths(allPaths)
 {
   if (implementation == Memory || implementation == SCFG || implementation == SuffixArray ||
-      implementation==Compact  || implementation == MultiModel) {
+      implementation==Compact  || implementation == MultiModel || implementation == FillUp) {
     m_useThreadSafePhraseDictionary = true;
     if (implementation == SuffixArray) {
       cerr << "Warning: implementation holds chached weights!" << endl;
@@ -96,6 +98,8 @@ PhraseDictionary* PhraseDictionaryFeature::LoadPhraseTable(const TranslationSyst
   const StaticData& staticData = StaticData::Instance();
   std::vector<float> weightT = staticData.GetWeights(this);
   
+  VERBOSE(2,"***Phrase table type: " << m_implementation << std::endl);
+
   if (m_implementation == Memory) {
     // memory phrase table
     VERBOSE(2,"using standard phrase tables" << std::endl);
@@ -240,15 +244,33 @@ PhraseDictionary* PhraseDictionaryFeature::LoadPhraseTable(const TranslationSyst
 #else
     CHECK(false);
 #endif
-  } else if (m_implementation == MultiModel ) {
+  } else if (m_implementation == MultiModel || m_implementation == FillUp) {
     // memory phrase table
-    VERBOSE(2,"multi-model mode" << std::endl);
+    VERBOSE(1,"***multi-model mode" << std::endl);
     if (staticData.GetInputType() != SentenceInput) {
       UserMessage::Add("Must use binary phrase table for this input type");
       CHECK(false);
     }
 
-    PhraseDictionaryMultiModel* pd  = new PhraseDictionaryMultiModel(GetNumScoreComponents(),this);
+    PhraseDictionaryMultiModel* pd;
+
+    switch(m_implementation)
+    {
+    case MultiModel:
+      VERBOSE(1, "Linear interpolation" << std::endl);
+      pd = new PhraseDictionaryInterpolation(GetNumScoreComponents(),this);
+      break;
+    case FillUp:
+      VERBOSE(1, "Fill-up" << std::endl);
+      pd = new PhraseDictionaryFillup(GetNumScoreComponents(), this);
+      break;
+    default:
+      UserMessage::Add("Invalid multi-model type.");
+      CHECK(false);
+    }
+
+//    pd = new PhraseDictionaryInterpolation(GetNumScoreComponents(),this);
+
     bool ret = pd->Load(GetInput(), GetOutput()
                          , m_allPaths
                          , weightT
@@ -277,14 +299,14 @@ void PhraseDictionaryFeature::InitDictionary(const TranslationSystem* system)
   //Other types will be lazy loaded
 }
 
-void PhraseDictionary::SetNumScoreComponentMultiModel(size_t num)
+void PhraseDictionary::SetNumScoreComponentsMultiModel(size_t num)
 {
-  m_numScoreComponentMultiModel = num;
+  m_numScoreComponentsMultiModel = num;
 }
 
-size_t PhraseDictionary::GetNumScoreComponentMultiModel() const
+size_t PhraseDictionary::GetNumScoreComponentsMultiModel() const
 {
-  return m_numScoreComponentMultiModel;
+  return m_numScoreComponentsMultiModel;
 }
 
 //Called when we start translating a new sentence

@@ -106,7 +106,7 @@ bool PhraseDictionaryMemory::Load(const std::vector<FactorType> &input
     }
  
     //target
-    std::auto_ptr<TargetPhrase> targetPhrase(new TargetPhrase());
+    std::auto_ptr<TargetPhrase> targetPhrase(new TargetPhrase(Output));
     targetPhrase->CreateFromString(output, targetPhraseString, factorDelimiter);
 
     scv.clear();
@@ -124,7 +124,7 @@ bool PhraseDictionaryMemory::Load(const std::vector<FactorType> &input
     if (scv.size() != m_numScoreComponent) {
       //PhraseDictionaryMultiModel may use input phrase dictionaries with a different number of features than it is assigned in the log-linear model;
       //filling extra slots with zeroes to prevent error messages on the way
-      if (m_numScoreComponentMultiModel > 0 && scv.size() == m_numScoreComponentMultiModel && m_numScoreComponentMultiModel < m_numScoreComponent) {
+      if (m_numScoreComponentsMultiModel > 0 && scv.size() == m_numScoreComponentsMultiModel && m_numScoreComponentsMultiModel < m_numScoreComponent) {
           scv.resize(m_numScoreComponent);
       }
       else {

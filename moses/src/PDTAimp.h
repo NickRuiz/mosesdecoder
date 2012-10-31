@@ -151,7 +151,7 @@ protected:
 
     // convert into TargetPhrases
     for(size_t i=0; i<cands.size(); ++i) {
-      TargetPhrase targetPhrase;
+      TargetPhrase targetPhrase(Output);
 
       StringTgtCand::Tokens const& factorStrings=cands[i].tokens;
       Scores const& probVector=cands[i].scores;
@@ -292,7 +292,14 @@ protected:
       }
     }
 
-    targetPhrase.SetScore(m_obj->GetFeature(), scoreVector, sparseFeatures, weights, weightWP, *m_languageModels);
+    // TODO: Temporary fix for fill-up
+    std::vector<float> scores = std::vector<float>(scoreVector.begin(), scoreVector.end());
+    if (scores.size() < weights.size()) {
+      scores.resize(weights.size());
+    }
+
+//    targetPhrase.SetScore(m_obj->GetFeature(), scoreVector, sparseFeatures, weights, weightWP, *m_languageModels);
+    targetPhrase.SetScore(m_obj->GetFeature(), *(const std::vector<float>*)&scores, sparseFeatures, weights, weightWP, *m_languageModels);
     targetPhrase.SetSourcePhrase(*srcPtr);
   }
 
@@ -506,7 +513,7 @@ protected:
 
       for(E2Costs::const_iterator j=i->second.begin(); j!=i->second.end(); ++j) {
         TScores const & scores=j->second;
-        TargetPhrase targetPhrase;
+        TargetPhrase targetPhrase(Output);
         CreateTargetPhrase(targetPhrase,j->first,scores.trans,ScoreComponentCollection(),weightT,weightWP,scores.src);
         costs.push_back(std::make_pair(-targetPhrase.GetFutureScore(),tCands.size()));
         tCands.push_back(targetPhrase);

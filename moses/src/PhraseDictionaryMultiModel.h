@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "PhraseDictionary.h"
 #include "PhraseDictionaryMemory.h"
+#include "PhraseDictionaryTreeAdaptor.h"
 #ifndef WIN32
 #include "CompactPT/PhraseDictionaryCompact.h"
 #endif
@@ -36,9 +37,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 namespace Moses
 {
 
-  struct multiModelStatistics {
+  struct targetPhraseStatistics {
     TargetPhrase *targetPhrase;
     std::vector<std::vector<float> > p;
+  };
+
+  struct targetPhraseCollectionStatistics {
+	  const Phrase *sourcePhrase;
+	  std::map<std::string,targetPhraseStatistics*>* allStats;
   };
 
 /** Implementation of a phrase table with raw counts.
@@ -48,25 +54,27 @@ class PhraseDictionaryMultiModel: public PhraseDictionary
 
 public:
   PhraseDictionaryMultiModel(size_t m_numScoreComponent, PhraseDictionaryFeature* feature);
-  ~PhraseDictionaryMultiModel();
-  bool Load(const std::vector<FactorType> &input
+  virtual ~PhraseDictionaryMultiModel();
+  virtual bool Load(const std::vector<FactorType> &input
             , const std::vector<FactorType> &output
             , const std::vector<std::string> &files
             , const std::vector<float> &weight
             , size_t tableLimit
             , const LMList &languageModels
             , float weightWP);
-  TargetPhraseCollection* CreateTargetPhraseCollectionLinearInterpolation(std::map<std::string,multiModelStatistics*>* allStats, std::vector<std::vector<float> > &multimodelweights) const;
-  std::vector<std::vector<float> > getWeights(size_t numWeights, bool normalize) const;
-  std::vector<float> normalizeWeights(std::vector<float> &weights) const;
-  void CacheForCleanup(TargetPhraseCollection* tpc);
-  void CleanUp(const InputType &source);
+  virtual TargetPhraseCollection* CreateTargetPhraseCollection(targetPhraseCollectionStatistics stats) const = 0;
+//  TargetPhraseCollection* CreateTargetPhraseCollectionLinearInterpolation(std::map<std::string,multiModelStatistics*>* allStats, std::vector<std::vector<float> > &multimodelweights) const;
+  virtual std::vector<std::vector<float> > getWeights(size_t numWeights, bool normalize) const;
+  virtual std::vector<size_t> getRanking() const;
+  virtual std::vector<float> normalizeWeights(std::vector<float> &weights) const;
+  virtual void CacheForCleanup(TargetPhraseCollection* tpc);
+  virtual void CleanUp(const InputType &source);
   // functions below required by base class
-  const TargetPhraseCollection* GetTargetPhraseCollection(const Phrase& src) const;
+  virtual const TargetPhraseCollection* GetTargetPhraseCollection(const Phrase& src) const;
   virtual void InitializeForInput(InputType const&) {
     /* Don't do anything source specific here as this object is shared between threads.*/
   }
-  ChartRuleLookupManager *CreateRuleLookupManager(const InputType&, const ChartCellCollectionBase&);
+  virtual ChartRuleLookupManager *CreateRuleLookupManager(const InputType&, const ChartCellCollectionBase&);
 
 protected:
   std::string m_mode;
@@ -77,7 +85,6 @@ protected:
   std::vector<FactorType> m_input;
   std::vector<FactorType> m_output;
   size_t m_numModels;
-  size_t m_componentTableLimit;
   PhraseDictionaryFeature* m_feature_load;
 
   typedef std::vector<TargetPhraseCollection*> PhraseCache;

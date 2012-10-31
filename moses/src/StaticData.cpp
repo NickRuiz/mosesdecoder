@@ -295,6 +295,9 @@ bool StaticData::LoadData(Parameter *parameter)
     m_useTransOptCache = false;
   }
 
+  std::cerr << "transOptCache: " << m_useTransOptCache << std::endl;
+  std::cerr << "transOptCache max size: " << m_transOptCacheMaxSize << std::endl;
+
   //input factors
   const vector<string> &inputFactorVector = m_parameter->GetParam("input-factors");
   for(size_t i=0; i<inputFactorVector.size(); i++) {
@@ -348,6 +351,19 @@ bool StaticData::LoadData(Parameter *parameter)
 
   m_multimodelweights = Scan<float>( m_parameter->GetParam("weight-t-multimodel") );
 
+  // Rank the models
+  VERBOSE(3, "Begin multimodel rank" << std::endl);
+  m_multiModelRank.resize(m_multimodelweights.size());
+  for (size_t i = 0; i < m_multimodelweights.size(); i++)
+  {
+    VERBOSE(3,"make_pair" << std::endl);
+    m_multiModelRank[i] = make_pair(i, m_multimodelweights[i]);
+  }
+  // Sort the index
+  VERBOSE(3,"sort" << std::endl);
+  std::sort(m_multiModelRank.begin(), m_multiModelRank.end(), rankOrdering());
+  VERBOSE(3, "End multimodel rank" << std::endl);
+
   // reordering constraints
   m_maxDistortion = (m_parameter->GetParam("distortion-limit").size() > 0) ?
                     Scan<int>(m_parameter->GetParam("distortion-limit")[0])
@@ -357,7 +373,7 @@ bool StaticData::LoadData(Parameter *parameter)
   // settings for pruning
   m_maxHypoStackSize = (m_parameter->GetParam("stack").size() > 0)
                        ? Scan<size_t>(m_parameter->GetParam("stack")[0]) : DEFAULT_MAX_HYPOSTACK_SIZE;
-
+  std::cerr << "max stack size: " << m_maxHypoStackSize << std::endl;
   m_minHypoStackDiversity = 0;
   if (m_parameter->GetParam("stack-diversity").size() > 0) {
     if (m_maxDistortion > 15) {
@@ -1251,6 +1267,16 @@ bool StaticData::LoadPhraseTables()
       return false;
     }
 
+    // Phrase table fill-up
+    vector<size_t>  maxSourcePhraseFillup           = Scan<size_t>(m_parameter->GetParam("ttable-fillup-source-limit"));
+    if (maxSourcePhraseFillup.size() > 0 && maxSourcePhraseFillup[0] > 0) {
+      VERBOSE(1, "Source phrase length limit of " << maxSourcePhraseFillup[0] << " for ttable fill-up." << endl);
+      m_maxSourcePhraseFillup = maxSourcePhraseFillup[0];
+    }
+    else {
+    	m_maxSourcePhraseFillup = -1;
+    }
+
     size_t index = 0;
     size_t weightAllOffset = 0;
     bool oldFileFormat = false;
@@ -1362,7 +1388,7 @@ bool StaticData::LoadPhraseTables()
       //might not really be loading here
       IFVERBOSE(1)
       PrintUserTime(string("Start loading PhraseTable ") + filePath);
-      VERBOSE(1,"filePath: " << filePath <<endl);
+      VERBOSE(2,"filePath: " << filePath <<endl);
 
       //optional create sparse phrase feature
       SparsePhraseDictionaryFeature* spdf = NULL; 
@@ -2118,6 +2144,32 @@ void StaticData::SetExecPath(const std::string &path)
 const string &StaticData::GetBinDirectory() const
 {
   return m_binPath;
+}
+
+const std::vector<std::pair<size_t, float> >* StaticData::GetTemporaryMultiModelRankVector() const {
+  VERBOSE(3,"Start GetTemporaryMultiModelRankVector()" << std::endl);
+
+  VERBOSE(3,"Call GetTemporaryMultiModelWeightsVector()" << std::endl);
+  const std::vector<float>* weights_ptr = GetTemporaryMultiModelWeightsVector();
+  VERBOSE(3,"End GetTemporaryMultiModelWeightsVector()" << std::endl);
+  std::vector<float> raw_weights;
+
+  raw_weights = *weights_ptr;
+
+	m_multiModelRank_tmp.clear();
+  m_multiModelRank_tmp.resize(m_multimodelweights.size());
+  for (size_t i = 0; i < raw_weights.size(); i++)
+  {
+    float val = raw_weights[i];
+    VERBOSE(3,"make_pair" << std::endl);
+    m_multiModelRank_tmp[i] = std::make_pair(i, val);
+  }
+  // Sort the index
+  VERBOSE(3,"sort" << std::endl);
+  std::sort(m_multiModelRank_tmp.begin(), m_multiModelRank_tmp.end(), rankOrdering());
+
+  VERBOSE(3,"End GetTemporaryMultiModelRankVector()" << std::endl);
+  return &m_multiModelRank_tmp;
 }
 
 }

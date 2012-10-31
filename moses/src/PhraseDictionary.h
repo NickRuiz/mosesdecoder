@@ -60,7 +60,7 @@ class PhraseDictionary: public Dictionary
 {
 public:
   PhraseDictionary(size_t numScoreComponent, const PhraseDictionaryFeature* feature):
-    Dictionary(numScoreComponent), m_tableLimit(0), m_feature(feature) {}
+    Dictionary(numScoreComponent), m_tableLimit(0), m_feature(feature), m_numScoreComponentsMultiModel(numScoreComponent) {}
   //! table limit number.
   size_t GetTableLimit() const {
     return m_tableLimit;
@@ -84,13 +84,13 @@ public:
     const ChartCellCollectionBase &) = 0;
 
   //PhraseDictionaryMultiModel may use input phrase dictionaries with a different number of features than it is assigned in the log-linear model
-  void SetNumScoreComponentMultiModel(size_t num);
-  size_t GetNumScoreComponentMultiModel() const;
+  void SetNumScoreComponentsMultiModel(size_t num);
+  virtual size_t GetNumScoreComponentsMultiModel() const;
 
 protected:
   size_t m_tableLimit;
   const PhraseDictionaryFeature* m_feature;
-  size_t m_numScoreComponentMultiModel;
+  size_t m_numScoreComponentsMultiModel;
 };
 
 

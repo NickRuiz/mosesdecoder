@@ -189,6 +189,9 @@ Parameter::Parameter()
   // Compact phrase table and reordering table.                                                                                  
   AddParam("minlexr-memory", "Load lexical reordering table in minlexr format into memory");                                          
   AddParam("minphr-memory", "Load phrase table in minphr format into memory");
+
+  // Multi-Model params
+  AddParam("ttable-fillup-source-limit", "Maximum source phrase length during phrase table fill-up");
 }
 
 Parameter::~Parameter()

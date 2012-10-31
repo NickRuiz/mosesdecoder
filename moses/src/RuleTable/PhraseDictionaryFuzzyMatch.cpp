@@ -235,7 +235,7 @@ namespace Moses
       sourcePhrase.CreateFromStringNewFormat(Input, *m_input, sourcePhraseString, factorDelimiter, sourceLHS);
       
       // create target phrase obj
-      TargetPhrase *targetPhrase = new TargetPhrase();
+      TargetPhrase *targetPhrase = new TargetPhrase(Output);
       targetPhrase->CreateFromStringNewFormat(Output, *m_output, targetPhraseString, factorDelimiter, targetLHS);
       
       // rest of target phrase
@@ -266,7 +266,7 @@ namespace Moses
     // sort and prune each target phrase collection
     SortAndPrune(rootNode);
    
-    //removedirectoryrecursively(dirName);
+    removedirectoryrecursively(dirName);
   }
   
   TargetPhraseCollection &PhraseDictionaryFuzzyMatch::GetOrCreateTargetPhraseCollection(PhraseDictionaryNodeSCFG &rootNode

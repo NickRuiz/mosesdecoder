@@ -37,8 +37,6 @@ using namespace std;
 namespace Moses
 {
 
-Phrase::Phrase() {}
-
 Phrase::Phrase(size_t reserveSize)
 {
   m_words.reserve(reserveSize);

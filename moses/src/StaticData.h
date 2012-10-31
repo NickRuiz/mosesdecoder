@@ -234,6 +234,8 @@ protected:
   bool m_minphrMemory;
   bool m_minlexrMemory;
 
+  size_t m_maxSourcePhraseFillup; //! Source phrase length limit for ttable fill-up
+
   // Initial = 0 = can be used when creating poss trans
   // Other = 1 = used to calculate LM score once all steps have been processed
   Word m_inputDefaultNonTerminal, m_outputDefaultNonTerminal;
@@ -245,11 +247,22 @@ protected:
   long m_startTranslationId;
 
   std::vector<float> m_multimodelweights;
+  std::vector<std::pair<size_t,float> > m_multiModelRank;
+
+  struct rankOrdering {
+	bool operator ()(std::pair<size_t, float> const& a, std::pair<size_t, float> const& b) {
+		return a.second >= b.second;
+	}
+  };
+
 #ifdef WITH_THREADS
   mutable std::map<boost::thread::id, std::vector<float> > m_multimodelweights_tmp;
+//  mutable std::map<boost::thread::id, std::vector<std::pair<size_t,float> > m_multiModelRank_tmp;
 #else
   mutable std::vector<float> m_multimodelweights_tmp;
+//  mutable std::vector<std::pair<size_t,float> > m_multiModelRank_tmp;
 #endif
+  mutable std::vector<std::pair<size_t,float> > m_multiModelRank_tmp;
   StaticData();
 
 
@@ -750,8 +763,16 @@ public:
   void SetExecPath(const std::string &path);
   const std::string &GetBinDirectory() const;
 
+  size_t GetMaxSourcePhraseFillup() const {
+	return m_maxSourcePhraseFillup;
+  }
+
   const std::vector<float>* GetMultiModelWeightsVector() const {
     return &m_multimodelweights;
+  }
+
+  const std::vector<std::pair<size_t, float> >* GetMultiModelRankVector() const {
+	return &m_multiModelRank;
   }
 
   void SetTemporaryMultiModelWeightsVector(std::vector<float> weights) const {
@@ -774,6 +795,34 @@ public:
     return &m_multimodelweights_tmp;
 #endif
   }
+
+  const std::vector<std::pair<size_t, float> >* GetTemporaryMultiModelRankVector() const;
+//  {
+//	const std::vector<float>* weights = GetTemporaryMultiModelWeightsVector();
+//
+//	m_multiModelRank_tmp.resize(m_multimodelweights.size());
+//	for (size_t i = 0; i < weights->size(); i++)
+//	{
+//	  float val = weights[i];
+//	  m_multiModelRank_tmp[i] = std::make_pair(i, val);
+//	}
+//	// Sort the index
+//	std::sort(m_multiModelRank_tmp.begin(), m_multiModelRank_tmp.end(), rankOrdering);
+//
+//	return &m_multiModelRank_tmp;
+//	/*
+//#ifdef WITH_THREADS
+//    if (m_multiModelRank_tmp.find(boost::this_thread::get_id()) != m_multiModelRank_tmp.end()) {
+//      return &m_multiModelRank_tmp.find(boost::this_thread::get_id())->second;
+//    }
+//    else {
+//      return NULL;
+//    }
+//#else
+//    return &m_multiModelRank_tmp;
+//#endif
+//	*/
+//  }
 };
 
 }
