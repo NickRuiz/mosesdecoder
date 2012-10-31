@@ -7,6 +7,7 @@
 #include "LM/Base.h"
 #include "ScoreIndexManager.h"
 
+
 #ifdef WITH_THREADS
 #include <boost/thread/tss.hpp>
 #endif
@@ -55,6 +56,7 @@ protected:
   // float SigmoidLog(float x, float magnitude, float sharpness, float xShift) const;
   float SigmoidLog(float x, float magnitude) const;
   float FastSigmoid(float x, float magnitude) const;
+  float LogFunction(float x) const;
 
 #ifdef WITH_THREADS
   boost::thread_specific_ptr<ThreadLocalStorage> m_local;
@@ -63,7 +65,7 @@ protected:
 #endif
 	
 public:
-  // enum SigmoidType {SigmoidLog, FastSigmoid};
+//  enum SigmoidType {SigmoidLog, FastSigmoid};
 //  LazyMDI(const std::vector<float> &weights);
   LazyMDI(float weight, LMImplementation adaptLMImpl, vector<FactorType> adaptFactorTypes,
       size_t adaptOrder, string adaptFilePath, LanguageModel* baseLM, int contextSize, float adaptMagnitude);

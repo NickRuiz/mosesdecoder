@@ -46,6 +46,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 // TODO: (nickruiz) LazyMDI include - StaticData.cpp
 #include "LazyMDI.h"
+#include "UnigramMatcher.h"
 
 #ifdef HAVE_SYNLM
 #include "SyntacticLanguageModel.h"
@@ -525,6 +526,7 @@ bool StaticData::LoadData(Parameter *parameter)
 
   // TODO: (nickruiz) Add LoadLazyMDI() to LoadData
   if (!LoadLazyMDI()) return false;
+  if (!LoadUnigramMatcher()) return false;
 
   //configure the translation systems with these tables
   vector<string> tsConfig = m_parameter->GetParam("translation-systems");
@@ -616,6 +618,10 @@ bool StaticData::LoadData(Parameter *parameter)
     if (m_LazyMDI != NULL) {
       m_translationSystems.find(config[0])->second.AddFeatureFunction(m_LazyMDI);
     }
+
+    if (m_UnigramMatcher != NULL) {
+      m_translationSystems.find(config[0])->second.AddFeatureFunction(m_UnigramMatcher);
+    }
   }
 
   m_scoreIndexManager.InitFeatureNames();
@@ -668,6 +674,7 @@ StaticData::~StaticData()
   // TODO: (nickruiz) LazyMDI destructor
   // delete Lazy MDI adapter
   delete m_LazyMDI;
+  delete m_UnigramMatcher;
 
   //delete m_parameter;
 
@@ -1294,6 +1301,7 @@ bool StaticData::LoadLazyMDI()
   const vector<int> &contextSizeVector = Scan<int>(m_parameter->GetParam("lmodel-adapt-context-size"));
   const vector<float> &weightVector = Scan<float>(m_parameter->GetParam("weight-l-adapt"));
 	const vector<float> &magnitudeVector = Scan<float>(m_parameter->GetParam("adapt-magnitude"));
+	const vector<string> adaptTypeVector = m_parameter->GetParam("adapt-type");
 
   int adaptFileCount = adaptFileVector.size();
   int baselineLMVectorCount = baselineLMVector.size();
@@ -1302,10 +1310,21 @@ bool StaticData::LoadLazyMDI()
 
   int contextSize = contextSizeVector.size() > 0 ? contextSizeVector[0] : DEFAULT_CONTEXT_SIZE;
 
+  string adaptType = "";
+
+  if (adaptTypeVector.size() == 0)
+  {
+    adaptType = "lazymdi";
+  }
+  else
+  {
+    adaptType = adaptTypeVector[0];
+  }
+
   LanguageModel* baseLM = NULL;
 
   // TODO: (nickruiz) LazyMDI: Only one adaptation file/feature weight is used for now.
-  if (adaptFileCount > 0 && baselineLMVectorCount > 0)
+  if (adaptType == "lazymdi" && adaptFileCount > 0 && baselineLMVectorCount > 0)
   {
     if (weightVectorCount == 0)
     {
@@ -1404,6 +1423,70 @@ bool StaticData::LoadLazyMDI()
   return true;
 }
 
+bool StaticData::LoadUnigramMatcher()
+{
+  const int DEFAULT_CONTEXT_SIZE = 0;
+  const vector<string> &adaptFileVector = m_parameter->GetParam("lmodel-adapt-file");
+  const vector<int> &contextSizeVector = Scan<int>(m_parameter->GetParam("lmodel-adapt-context-size"));
+  const vector<float> &weightVector = Scan<float>(m_parameter->GetParam("weight-l-adapt"));
+  const vector<string> adaptTypeVector = m_parameter->GetParam("adapt-type");
+
+  int adaptFileCount = adaptFileVector.size();
+  int weightVectorCount = weightVector.size();
+
+  int contextSize = contextSizeVector.size() > 0 ? contextSizeVector[0] : DEFAULT_CONTEXT_SIZE;
+
+  string adaptType = "";
+
+  if (adaptTypeVector.size() == 0)
+  {
+    return true;
+  }
+  else
+  {
+    adaptType = adaptTypeVector[0];
+  }
+
+  // TODO: (nickruiz) UnigramMatcher: Only one adaptation file/feature weight is used for now.
+  if (adaptType == "unigram" && adaptFileCount > 0)
+  {
+    if (weightVectorCount == 0)
+    {
+      stringstream strme;
+      strme << "You specified " << adaptFileCount
+            << " adaptation files for Unigram Matching adaptation (lmodel-adapt-file), but you did not provide any feature weights (lmodel-l-adapt)!";
+      UserMessage::Add(strme.str());
+      return false;
+    }
+
+    const string adaptFile = adaptFileVector[0];
+    float weight = weightVector[0];
+
+    // TODO: (nickruiz) Extract the adaptation LM list information
+    vector<string> adaptFileToken = Tokenize(adaptFile);
+    // type = implementation, SRI, IRST etc
+    LMImplementation adaptLMImpl = static_cast<LMImplementation>(Scan<int>(adaptFileToken[0]));
+
+    // factorType = 0 = Surface, 1 = POS, 2 = Stem, 3 = Morphology, etc
+    vector<FactorType>  adaptFactorTypes   = Tokenize<FactorType>(adaptFileToken[1], ",");
+
+    // adaptOrder = 2 = bigram, 3 = trigram, etc
+    size_t adaptOrder = Scan<int>(adaptFileToken[2]);
+
+    const string adaptFilePath = adaptFileToken[3];
+
+    if (adaptOrder != 1)
+    {
+      UserMessage::Add("Adaptation LMs must be unigram for Unigram Matching");
+      return false;
+    }
+
+    m_UnigramMatcher = new UnigramMatcher(weight, adaptLMImpl, adaptFactorTypes, adaptOrder, adaptFilePath, contextSize);
+
+  }
+
+  return true;
+}
 
 void StaticData::SetWeightsForScoreProducer(const ScoreProducer* sp, const std::vector<float>& weights)
 {

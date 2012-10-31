@@ -7,6 +7,7 @@
 #include "LazyMDI.h"
 #include "StaticData.h"
 #include "LM/Factory.h"
+#include <math.h>
 
 using namespace std;
 
@@ -108,6 +109,13 @@ float LazyMDI::FastSigmoid(float x, float magnitude) const
   return magnitude * x / (magnitude + abs(x) - 1.0);
 }
 
+float LazyMDI::LogFunction(float x) const
+{
+//  return max(0, 2.0 + log(x) / 2.0);
+//  return max(0.0, 2.0 + x / 2.0);
+  return log10(x + 1.0);
+}
+
 FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
                          const FFState* prev_state,
                          ScoreComponentCollection* accumulator) const
@@ -145,7 +153,7 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
     // We may not have sufficient statistics for cased words in our adaptation text.
     lowercase = word.GetString(wordFactors, false);
     VERBOSE(3, "Old word: " << lowercase);
-    boost::algorithm::to_lower(lowercase);
+    // boost::algorithm::to_lower(lowercase);
     VERBOSE(3, "\tNew word: " << lowercase << endl);
     lowercasedWord.CreateFromString(Input, StaticData::Instance().GetInputFactorOrder(), lowercase, false);
     tmpPhrase.AddWord(lowercasedWord);
@@ -175,11 +183,15 @@ FFState* LazyMDI::Evaluate( const Hypothesis& cur_hypo,
       {
         score = FastSigmoid(exp(score), m_adaptMagnitude);
       }
+
+//      score = LogFunction(exp(score));
+//      totalScore += score;
+
       // score = SigmoidLog(score, 2.0);
       // score = FastSigmoid(exp(score), 2.0);
 
     }
-
+//    // TODO: Is the log transformation important?
     totalScore += log(score);
   }
 

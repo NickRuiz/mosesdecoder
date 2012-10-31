@@ -67,6 +67,7 @@ class TranslationSystem;
 
 // TODO: (nickruiz) LazyMDI include - StaticData.h
 class LazyMDI;
+class UnigramMatcher;
 
 typedef std::pair<std::string, float> UnknownLHSEntry;
 typedef std::vector<UnknownLHSEntry>  UnknownLHSList;
@@ -219,6 +220,7 @@ protected:
 
   // TODO: (nickruiz) LazyMDI member declaration
   LazyMDI* m_LazyMDI; //! Lazy MDI adaptation
+  UnigramMatcher* m_UnigramMatcher; //! Unigram Matching adaptation
 
   int m_threadCount;
   long m_startTranslationId;
@@ -252,6 +254,7 @@ protected:
 
   //! load Lazy MDI adapter
   bool LoadLazyMDI();
+  bool LoadUnigramMatcher();
 
 public:
 
