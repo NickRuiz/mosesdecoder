@@ -13,6 +13,7 @@
 #include "MeteorScorer.h"
 #include "HwcmScorer.h"
 #include "Reference.h"
+#include "AsrDeviationScorer.h"
 
 using namespace std;
 
@@ -60,6 +61,8 @@ Scorer* ScorerFactory::getScorer(const string& type, const string& config)
     return new MeteorScorer(config);
   } else if (type == "HWCM") {
     return new HwcmScorer(config);
+  } else if (type == "ASRDevRate") {
+  	return new AsrDeviationScorer(config);
   } else {
     if (type.find(',') != string::npos) {
       return new InterpolatedScorer(type, config);

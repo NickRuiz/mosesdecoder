@@ -19,6 +19,7 @@
 #include "moses/FF/BleuScoreFeature.h"
 #include "moses/FF/TargetWordInsertionFeature.h"
 #include "moses/FF/SourceWordDeletionFeature.h"
+#include "moses/FF/SourceNgram.h"
 #include "moses/FF/GlobalLexicalModel.h"
 #include "moses/FF/GlobalLexicalModelUnlimited.h"
 #include "moses/FF/Model1Feature.h"
@@ -226,6 +227,7 @@ FeatureRegistry::FeatureRegistry()
   MOSES_FNAME(Model1Feature);
   MOSES_FNAME(SourceWordDeletionFeature);
   MOSES_FNAME(TargetWordInsertionFeature);
+  MOSES_FNAME(SourceNgram);
   MOSES_FNAME(PhraseBoundaryFeature);
   MOSES_FNAME(PhraseLengthFeature);
   MOSES_FNAME(WordTranslationFeature);

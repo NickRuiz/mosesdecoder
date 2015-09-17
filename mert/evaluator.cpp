@@ -18,6 +18,8 @@
 #include "Data.h"
 #include "util/random.hh"
 
+#include "AsrDeviationScorer.h"
+
 using namespace std;
 using namespace MosesTuning;
 
@@ -209,6 +211,7 @@ struct ProgramOption {
   vector<string> scorer_configs;
   string reference;
   string candidate;
+  string devset;
   string nbest;
   vector<string> scorer_factors;
   vector<string> scorer_filter;
@@ -230,7 +233,7 @@ void ParseCommandOptions(int argc, char** argv, ProgramOption* opt)
   int c;
   int option_index;
   int last_scorer_index = -1;
-  while ((c = getopt_long(argc, argv, "s:c:R:C:n:b:r:f:l:h", long_options, &option_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:c:D:R:C:n:b:r:f:l:h", long_options, &option_index)) != -1) {
     switch(c) {
     case 's':
       opt->scorer_types.push_back(string(optarg));
@@ -243,6 +246,9 @@ void ParseCommandOptions(int argc, char** argv, ProgramOption* opt)
       if (last_scorer_index == -1) throw runtime_error("You need to specify a scorer before its config string.");
       opt->scorer_configs[last_scorer_index] = string(optarg);
       break;
+    case 'D':
+    	opt->devset = string(optarg);
+    	break;
     case 'R':
       opt->reference = string(optarg);
       break;
@@ -326,6 +332,11 @@ int main(int argc, char** argv)
     for (vector<string>::const_iterator fileIt = candFiles.begin(); fileIt != candFiles.end(); ++fileIt) {
       for (size_t i = 0; i < option.scorer_types.size(); i++) {
         g_scorer = ScorerFactory::getScorer(option.scorer_types[i], option.scorer_configs[i]);
+        if (g_scorer->getName().compare("ASRDevRate")) {
+        	AsrDeviationScorer* S = dynamic_cast<AsrDeviationScorer*>(g_scorer);
+        	// TODO: Check that option.devset exists
+        	S->setSourceFile(option.devset);
+        }
         g_scorer->setFactors(option.scorer_factors[i]);
         g_scorer->setFilter(option.scorer_filter[i]);
         g_scorer->setReferenceFiles(refFiles);
