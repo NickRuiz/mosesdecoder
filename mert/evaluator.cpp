@@ -162,6 +162,7 @@ void usage()
   cerr << "[--sctype|-s] the scorer type (default BLEU)" << endl;
   cerr << "[--scconfig|-c] configuration string passed to scorer" << endl;
   cerr << "\tThis is of the form NAME1:VAL1,NAME2:VAL2 etc " << endl;
+  cerr << "[--source|-S] source file " << endl;
   cerr << "[--reference|-R] comma separated list of reference files" << endl;
   cerr << "[--candidate|-C] comma separated list of candidate files" << endl;
   cerr << "[--nbest|-n] comma separated list of nbest files (only 1-best is evaluated)" << endl;
@@ -194,6 +195,7 @@ void usage()
 static struct option long_options[] = {
   {"sctype", required_argument, 0, 's'},
   {"scconfig", required_argument, 0, 'c'},
+  {"source", required_argument, 0, 'S'},
   {"reference", required_argument, 0, 'R'},
   {"candidate", required_argument, 0, 'C'},
   {"nbest", required_argument, 0, 'n'},
@@ -209,9 +211,9 @@ static struct option long_options[] = {
 struct ProgramOption {
   vector<string> scorer_types;
   vector<string> scorer_configs;
+  string source;
   string reference;
   string candidate;
-  string devset;
   string nbest;
   vector<string> scorer_factors;
   vector<string> scorer_filter;
@@ -233,7 +235,7 @@ void ParseCommandOptions(int argc, char** argv, ProgramOption* opt)
   int c;
   int option_index;
   int last_scorer_index = -1;
-  while ((c = getopt_long(argc, argv, "s:c:D:R:C:n:b:r:f:l:h", long_options, &option_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:c:R:C:n:b:r:f:l:h", long_options, &option_index)) != -1) {
     switch(c) {
     case 's':
       opt->scorer_types.push_back(string(optarg));
@@ -246,8 +248,8 @@ void ParseCommandOptions(int argc, char** argv, ProgramOption* opt)
       if (last_scorer_index == -1) throw runtime_error("You need to specify a scorer before its config string.");
       opt->scorer_configs[last_scorer_index] = string(optarg);
       break;
-    case 'D':
-    	opt->devset = string(optarg);
+    case 'S':
+    	opt->source = string(optarg);
     	break;
     case 'R':
       opt->reference = string(optarg);
@@ -312,8 +314,11 @@ int main(int argc, char** argv)
   }
 
   try {
+  	string sourceFile;
     vector<string> refFiles;
     vector<string> candFiles;
+
+    if (! option.source.empty()) sourceFile = option.source;
 
     if (option.reference.length() == 0) throw runtime_error("You have to specify at least one reference file.");
     split(option.reference, ',', refFiles);
@@ -332,10 +337,8 @@ int main(int argc, char** argv)
     for (vector<string>::const_iterator fileIt = candFiles.begin(); fileIt != candFiles.end(); ++fileIt) {
       for (size_t i = 0; i < option.scorer_types.size(); i++) {
         g_scorer = ScorerFactory::getScorer(option.scorer_types[i], option.scorer_configs[i]);
-        if (g_scorer->getName().compare("ASRDevRate")) {
-        	AsrDeviationScorer* S = dynamic_cast<AsrDeviationScorer*>(g_scorer);
-        	// TODO: Check that option.devset exists
-        	S->setSourceFile(option.devset);
+        if (g_scorer->getName() == "ASRDevRate") {
+        	(dynamic_cast<AsrDeviationScorer*>(g_scorer))->setSourceFile(sourceFile);
         }
         g_scorer->setFactors(option.scorer_factors[i]);
         g_scorer->setFilter(option.scorer_filter[i]);

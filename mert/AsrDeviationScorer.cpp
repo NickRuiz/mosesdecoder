@@ -22,7 +22,7 @@ AsrDeviationScorer::AsrDeviationScorer(const string& config)
 
 AsrDeviationScorer::~AsrDeviationScorer() {}
 
-void AsrDeviationScorer::setSourceFile(const string& sourceFile)
+void AsrDeviationScorer::setSourceFile(string& sourceFile)
 {
 	m_sourceFile = sourceFile;
 }
@@ -76,31 +76,57 @@ void AsrDeviationScorer::prepareStats(size_t sid, const string& text, ScoreStats
 {
   string sentence = this->preprocessSentence(text);
 
-  vector<ScoreStatsType> stats;
   ScoreStats tmpEntry(1);
+  vector<ScoreStatsType> stats;
 
   tmpEntry.clear();
   m_wer_hyp_ref->prepareStats(sid, text, tmpEntry);
   stats.push_back(tmpEntry.get(0));
-
-  tmpEntry.clear();
-  m_wer_hyp_src->prepareStats(sid, text, tmpEntry);
-  stats.push_back(tmpEntry.get(0));
+  stats.push_back(tmpEntry.get(1));
 
   // TODO: Move to setReferenceFiles. Precompute this.
   tmpEntry.clear();
   m_wer_src_ref->prepareStats(sid, m_src_sentences[sid], tmpEntry);
   stats.push_back(tmpEntry.get(0));
+	stats.push_back(tmpEntry.get(1));
 
-  entry.set(stats);
+	tmpEntry.clear();
+  m_wer_hyp_src->prepareStats(sid, text, tmpEntry);
+  stats.push_back(tmpEntry.get(0));
+	stats.push_back(tmpEntry.get(1));
+
+	entry.set(stats);
 }
 
 float AsrDeviationScorer::calculateScore(const vector<ScoreStatsType>& comps) const
 {
-  if (comps.size() != 3) {
-    throw runtime_error("Size of stat vector for ASRDevRate is not 3");
+	/*
+	cerr << comps[0] << " " << comps[1] << endl
+	  		<< comps[2] << " " << comps[3] << endl
+	  		<< comps[4] << " " << comps[5] << endl;
+	*/
+
+  if (comps.size() != 6) {
+  	cerr << "comps.size(): " << comps.size() << endl;
+    throw runtime_error("Size of stat vector for ASRDevRate is not 6");
   }
-  return sqrt(comps[0]*comps[0] + pow(comps[1]- comps[2], 2));
+
+  vector<ScoreStatsType> wer_hyp_ref_scores;
+  vector<ScoreStatsType> wer_src_ref_scores;
+  vector<ScoreStatsType> wer_hyp_src_scores;
+
+  wer_hyp_ref_scores.push_back(comps[0]);
+	wer_hyp_ref_scores.push_back(comps[1]);
+	wer_src_ref_scores.push_back(comps[2]);
+	wer_src_ref_scores.push_back(comps[3]);
+	wer_hyp_src_scores.push_back(comps[4]);
+	wer_hyp_src_scores.push_back(comps[5]);
+
+  float wer_hyp_ref = m_wer_hyp_ref->calculateScore(wer_hyp_ref_scores);
+  float wer_src_ref = m_wer_src_ref->calculateScore(wer_src_ref_scores);
+  float wer_hyp_src = m_wer_hyp_src->calculateScore(wer_hyp_src_scores);
+
+  return sqrt(wer_hyp_ref*wer_hyp_ref / 2.0 + pow(wer_src_ref - wer_hyp_src, 2) / 2.0);
 }
 
 }

@@ -18,13 +18,13 @@ public:
 	explicit AsrDeviationScorer(const std::string& config = "");
 	~AsrDeviationScorer();
 
-	void setSourceFile(const std::string& sourceFile);
+	void setSourceFile(std::string& sourceFile);
 	virtual void setReferenceFiles(const std::vector<std::string>& referenceFiles);
 
 	virtual void prepareStats(std::size_t sid, const std::string& text, ScoreStats& entry);
 
 	virtual std::size_t NumberOfScores() const {
-		return 3;
+		return 6;
 	}
 
 	virtual float calculateScore(const std::vector<ScoreStatsType>& comps) const;
